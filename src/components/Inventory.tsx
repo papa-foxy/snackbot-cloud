@@ -133,8 +133,8 @@ function AIAnalysisPanel({
                     <span className={cn(
                       "text-[10px] uppercase font-bold px-2 py-0.5 rounded shrink-0 ml-2",
                       res.priority === 'High' ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-200" :
-                      res.priority === 'Medium' ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200" :
-                      "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"
+                        res.priority === 'Medium' ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200" :
+                          "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"
                     )}>
                       {res.priority}
                     </span>
@@ -302,8 +302,8 @@ function InventoryFilters({
               statusFilter === s
                 ? s === 'all' ? "bg-indigo-600 text-white border-indigo-600"
                   : s === 'in_stock' ? "bg-emerald-600 text-white border-emerald-600"
-                  : s === 'low_stock' ? "bg-amber-500 text-white border-amber-500"
-                  : "bg-red-600 text-white border-red-600"
+                    : s === 'low_stock' ? "bg-amber-500 text-white border-amber-500"
+                      : "bg-red-600 text-white border-red-600"
                 : "bg-white dark:bg-[var(--sb-card)] dark:bg-neutral-900 text-gray-600 dark:text-neutral-400 dark:text-neutral-300 border-gray-300 dark:border-neutral-600 dark:border-neutral-700 hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-300"
             )}
           >
@@ -682,9 +682,12 @@ export function Inventory() {
     setSaving(true);
     try {
       if (editingItem) {
-        const { error } = await supabase.from('inventory').update(formData).eq('id', editingItem.id);
-        if (error) throw error;
-        setAlert({ type: 'success', message: t('inventory.saveSuccess', 'Item updated successfully!') });
+        const { name, sku, quantity, unit, min_stock_level } = formData;
+        const { error } = await supabase
+          .from('inventory')
+          .update({ name, sku, quantity, unit, min_stock_level })  // ✅ only safe fields
+          .eq('id', editingItem.id);
+        if (error) throw error; setAlert({ type: 'success', message: t('inventory.saveSuccess', 'Item updated successfully!') });
       } else {
         const { error } = await supabase.from('inventory').insert([{ ...formData, merchant_id: activeMerchantId }]);
         if (error) throw error;

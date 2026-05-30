@@ -1,5 +1,5 @@
 // ============================================================================
-// SettingsAll.tsx â€” All Settings components combined into a single file
+// SettingsAll.tsx — All Settings components combined into a single file
 // Includes: types, constants, primitives, helpers, section components,
 //           sidebar, search bar, AI assistant, and main Settings component
 // ============================================================================
@@ -95,7 +95,7 @@ export interface SectionProps {
 
 
 // ============================================================================
-// MERCHANT ID HELPER â€” used by all sections for RLS-compliant upserts
+// MERCHANT ID HELPER — used by all sections for RLS-compliant upserts
 // ============================================================================
 
 function getMerchantId(): string {
@@ -463,7 +463,7 @@ function SectionCard({
             ))}
             {snippetHits.length > 6 && (
               <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
-                +{snippetHits.length - 6} moreâ€¦
+                +{snippetHits.length - 6} more…
               </p>
             )}
           </div>
@@ -614,10 +614,10 @@ You help users find the right settings and explain how things work.
 The settings page has these sections:
 - General: Business name, SSM number, TIN, SST number, contact, currency (MYR/SGD/USD), timezone, address, logo upload, receipt header/footer text, show logo/tax/QR on receipt, auto-print after payment.
 - Branch / Outlet: Add/manage branches, branch code, tax rate per branch, operating hours, table grid layout.
-- POS Devices: Generate and manage POS setup codes (stored as pos_code on each branch). One code per branch. Used for first-time POS terminal setup â€” staff enter the code on the terminal to sync all data.
+- POS Devices: Generate and manage POS setup codes (stored as pos_code on each branch). One code per branch. Used for first-time POS terminal setup — staff enter the code on the terminal to sync all data.
 - Users & Roles: Role permissions matrix (Manager, Supervisor, Cashier, Waiter). Login method (PIN/password), max discount limit per cashier, shift auto clock-in/out.
-- Payment: Enable/disable Cash, Card, E-Wallet, DuitNow. Default payment method. Malaysia 5-sen rounding rule. Split bill. Partial payment. Payment Timing â€” choose between "Pay Before Eating" (counter service/fast food, payment collected at order) or "Pay After Eating" (dine-in restaurants, bill requested when customer is ready to leave). This setting reflects to the POS terminal checkout flow.
-- Tax & Compliance (LHDN badge): LHDN MyInvois API â€” environment, client ID, client secret. Auto e-Invoice submission. Auto-consolidate daily B2C. SST rate, invoice number format, credit note prefix, refund prefix.
+- Payment: Enable/disable Cash, Card, E-Wallet, DuitNow. Default payment method. Malaysia 5-sen rounding rule. Split bill. Partial payment. Payment Timing — choose between "Pay Before Eating" (counter service/fast food, payment collected at order) or "Pay After Eating" (dine-in restaurants, bill requested when customer is ready to leave). This setting reflects to the POS terminal checkout flow.
+- Tax & Compliance (LHDN badge): LHDN MyInvois API — environment, client ID, client secret. Auto e-Invoice submission. Auto-consolidate daily B2C. SST rate, invoice number format, credit note prefix, refund prefix.
 - Menu Behaviour: Allow negative stock, auto-hide out-of-stock items, allow price override, enable scheduled items, require modifier selection.
 - Table Management: Enable table merging, table transfer, auto-release idle tables, QR code ordering, auto-close table after payment, default dining duration.
 - Inventory: Low stock alert, auto stock deduction, ingredient-level tracking, low stock threshold number.
@@ -626,14 +626,14 @@ The settings page has these sections:
 - Cloud & Sync: Sync frequency, conflict resolution, offline mode toggle. Export data, backup now, restore from backup.
 - Loyalty & Promos: Enable loyalty program, points per RM spent, points expiry days. Enable promo codes, scheduled promotions.
 - Security: Session timeout, audit log retention, two-factor authentication for managers, IP restriction.
-- Appearance & UI: Theme (light/dark/system), table view style, density, language â€” uses Google Gemini AI to translate.
+- Appearance & UI: Theme (light/dark/system), table view style, density, language — uses Google Gemini AI to translate.
 
 Always:
 1. Be concise and practical.
 2. Tell the user exactly which section to go to.
 3. Mention warnings or tips where relevant.
 4. Respond in a friendly, helpful tone.
-5. When referencing a section, wrap it like: [Section Name](section_id) â€” e.g. [Tax & Compliance](tax).
+5. When referencing a section, wrap it like: [Section Name](section_id) — e.g. [Tax & Compliance](tax).
 `;
 
 function parseAIResponse(text: string): { cleanText: string; suggestions: Array<{ label: string; sectionId: string }> } {
@@ -851,7 +851,7 @@ function AISettingsAssistant({ onNavigate }: { onNavigate: (sectionId: string) =
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about any settingâ€¦"
+              placeholder="Ask about any setting…"
               rows={1}
               className="flex-1 bg-transparent text-sm text-gray-800 dark:text-neutral-200 placeholder-gray-400 resize-none focus:outline-none leading-relaxed max-h-28"
               style={{ minHeight: '24px' }}
@@ -869,7 +869,7 @@ function AISettingsAssistant({ onNavigate }: { onNavigate: (sectionId: string) =
               <Send className="w-3.5 h-3.5" />
             </button>
           </div>
-          <p className="text-xs text-gray-400 dark:text-neutral-500 mt-1.5 text-center">Enter to send Â· Shift+Enter for new line</p>
+          <p className="text-xs text-gray-400 dark:text-neutral-500 mt-1.5 text-center">Enter to send · Shift+Enter for new line</p>
         </div>
       </div>
 
@@ -1047,9 +1047,9 @@ function GeneralSection({ searchQuery, forceOpen, onToggle, merchantId }: Sectio
                 </HField>
                 <HField label="Currency" searchQuery={searchQuery}>
                   <SelectField value={settings.currency} onChange={handleChange('currency')} onBlur={handleBlur('currency')}>
-                    <option value="MYR">MYR â€“ Malaysian Ringgit</option>
-                    <option value="SGD">SGD â€“ Singapore Dollar</option>
-                    <option value="USD">USD â€“ US Dollar</option>
+                    <option value="MYR">MYR – Malaysian Ringgit</option>
+                    <option value="SGD">SGD – Singapore Dollar</option>
+                    <option value="USD">USD – US Dollar</option>
                   </SelectField>
                 </HField>
                 <HField label="Time Zone" searchQuery={searchQuery}>
@@ -1078,7 +1078,7 @@ function GeneralSection({ searchQuery, forceOpen, onToggle, merchantId }: Sectio
                     className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-neutral-600 rounded-lg text-sm font-medium text-gray-700 dark:text-neutral-300 hover:bg-gray-50 dark:bg-neutral-800/50 disabled:opacity-50">
                     <Upload className="w-4 h-4" /> Upload Logo
                   </button>
-                  <p className="text-xs text-gray-400 dark:text-neutral-500 mt-1.5">PNG or SVG, max 512KB. Recommended 256Ã—256px.</p>
+                  <p className="text-xs text-gray-400 dark:text-neutral-500 mt-1.5">PNG or SVG, max 512KB. Recommended 256x256px.</p>
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                 </div>
               </div>
@@ -1183,7 +1183,7 @@ function BranchSection({ searchQuery, forceOpen, onToggle, merchantId }: Section
                       <p className="text-sm font-medium text-gray-800 dark:text-neutral-200">{b.name}</p>
                       {!b.is_active && <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-neutral-800 text-gray-400 dark:text-neutral-500 rounded-full">Inactive</span>}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-neutral-500">Tax: {b.tax_rate}% Â· Hours: {b.open_time} â€“ {b.close_time}</p>
+                    <p className="text-xs text-gray-500 dark:text-neutral-500">Tax: {b.tax_rate}% · Hours: {b.open_time} – {b.close_time}</p>
                   </div>
                   <button onClick={() => navigateTo(`/branches/${b.id}`)}
                     className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-50 flex items-center gap-1">
@@ -1245,10 +1245,10 @@ function PosCodeCell({ code }: { code: string }) {
                 ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800'
                 : 'text-gray-300 dark:text-neutral-600 bg-gray-50 dark:bg-neutral-800 border-gray-100 dark:border-neutral-700'
             )}>
-              {visible ? seg : 'â€¢â€¢â€¢â€¢'}
+              {visible ? seg : '••••'}
             </span>
             {i < segments.length - 1 && (
-              <span className="text-gray-300 dark:text-neutral-600 text-xs font-bold">â€“</span>
+              <span className="text-gray-300 dark:text-neutral-600 text-xs font-bold">–</span>
             )}
           </React.Fragment>
         ))}
@@ -1322,7 +1322,7 @@ function PosBranchRow({
             ) : (
               <p className="text-xs text-gray-400 dark:text-neutral-500 italic flex items-center gap-1">
                 <Terminal className="w-3 h-3 shrink-0" />
-                No code â€” POS terminal cannot log in to this branch
+                No code — POS terminal cannot log in to this branch
               </p>
             )}
           </div>
@@ -1417,7 +1417,7 @@ function DevicesSection({ searchQuery, forceOpen, onToggle, merchantId }: Sectio
 
           {loading ? (
             <div className="flex items-center justify-center py-10 text-gray-400 dark:text-neutral-500">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading branchesâ€¦
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading branches…
             </div>
           ) : branches.length === 0 ? (
             <div className="text-center py-10 border border-dashed border-gray-200 dark:border-neutral-700 rounded-xl">
@@ -1865,7 +1865,7 @@ function PaymentSection({ searchQuery, forceOpen, onToggle, merchantId }: Sectio
         forceOpen={forceOpen} onToggle={onToggle} searchQuery={searchQuery} snippets={SECTION_SNIPPETS.payment}>
         {error && <div className="mb-3 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{error}</div>}
 
-        {/* â”€â”€ Payment Methods â”€â”€ */}
+        {/* ── Payment Methods ── */}
         <SubSection title="Payment Methods" searchQuery={searchQuery}>
           {loading ? (
             <div className="flex items-center justify-center py-8 text-gray-400 dark:text-neutral-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>
@@ -1898,7 +1898,7 @@ function PaymentSection({ searchQuery, forceOpen, onToggle, merchantId }: Sectio
           )}
         </SubSection>
 
-        {/* â”€â”€ Rules & Defaults â”€â”€ */}
+        {/* ── Rules & Defaults ── */}
         <SubSection title="Rules & Defaults" searchQuery={searchQuery}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <HField label="Default Payment Method" searchQuery={searchQuery}>
@@ -1920,10 +1920,10 @@ function PaymentSection({ searchQuery, forceOpen, onToggle, merchantId }: Sectio
           </div>
         </SubSection>
 
-        {/* â”€â”€ Payment Timing (NEW) â”€â”€ */}
+        {/* ── Payment Timing (NEW) ── */}
         <SubSection title="Payment Timing" searchQuery={searchQuery}>
           <InfoBox color="amber">
-            Controls when customers pay. This reflects directly to the POS terminal checkout flow â€” affecting how staff are prompted and when tables are released.
+            Controls when customers pay. This reflects directly to the POS terminal checkout flow — affecting how staff are prompted and when tables are released.
           </InfoBox>
 
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1965,7 +1965,7 @@ function PaymentSection({ searchQuery, forceOpen, onToggle, merchantId }: Sectio
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5 mt-1">
-                {['Dine-In', 'Fine Dining', 'CafÃ©'].map(tag => (
+                {['Dine-In', 'Fine Dining', 'Café'].map(tag => (
                   <span key={tag} className={cn(
                     'text-xs px-2 py-0.5 rounded-full font-medium',
                     !settings.pay_before_eat
@@ -2199,7 +2199,7 @@ function TaxSection({ searchQuery, forceOpen, onToggle, merchantId }: SectionPro
                 <div className="md:col-span-2">
                   <HField label="Client Secret" searchQuery={searchQuery}>
                     <div className="relative">
-                      <Input type={showSecret ? 'text' : 'password'} value={lhdn.lhdn_client_secret} onChange={handleLhdnChange('lhdn_client_secret')} onBlur={handleLhdnBlur('lhdn_client_secret')} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="font-mono text-sm pr-10" />
+                      <Input type={showSecret ? 'text' : 'password'} value={lhdn.lhdn_client_secret} onChange={handleLhdnChange('lhdn_client_secret')} onBlur={handleLhdnBlur('lhdn_client_secret')} placeholder="••••••••••••••••" className="font-mono text-sm pr-10" />
                       <button type="button" onClick={() => setShowSecret(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500 hover:text-gray-600 dark:text-neutral-400">
                         {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -2839,7 +2839,7 @@ function CloudSection({ searchQuery, forceOpen, onToggle, merchantId }: SectionP
                   </SelectField>
                 </HField>
               </div>
-              <HToggleRow label="Offline Mode" description="Continue taking orders without internet â€” syncs automatically when reconnected" checked={settings.offlineMode} onChange={() => handleToggle('offlineMode')} searchQuery={searchQuery} />
+              <HToggleRow label="Offline Mode" description="Continue taking orders without internet — syncs automatically when reconnected" checked={settings.offlineMode} onChange={() => handleToggle('offlineMode')} searchQuery={searchQuery} />
             </SubSection>
             <SubSection title="Data Management" searchQuery={searchQuery}>
               <div className="flex flex-wrap gap-3">
