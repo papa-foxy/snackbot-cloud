@@ -158,18 +158,13 @@ export function Login({ onLogin }: LoginProps) {
       {/* Logo + title */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <div className="flex justify-center mb-5">
-          <div className={cn('p-3.5 rounded-2xl shadow-lg', logoAccent)}>
-            <Store className={cn("w-9 h-9", isDark ? "text-white" : themeColors?.text)} />
-          </div>
-        </div>
-        <h1 className="text-3xl font-extrabold text-black dark:text-white tracking-tight">
-          {view === 'signin'     && 'SnackBot POS'}
-          {view === 'forgot'     && 'Reset Password'}
-          {view === 'reset_sent' && 'Check Your Email'}
-          {view === 'link_error' && 'Link Expired'}
-        </h1>
+<img src="/snackbot-word-logo.png" alt="SnackBot" className="h-30 w-auto object-contain" /></div>
+<h1 className="text-3xl font-extrabold text-black dark:text-white tracking-tight">
+  {view === 'forgot'     && 'Reset Password'}
+  {view === 'reset_sent' && 'Check Your Email'}
+  {view === 'link_error' && 'Link Expired'}
+</h1>
         <p className="mt-1.5 text-sm text-gray-500 dark:text-neutral-500">
-          {view === 'signin'     && 'Sign in to your staff account'}
           {view === 'forgot'     && 'Enter your email to receive a reset link'}
           {view === 'reset_sent' && `We sent a link to ${email}`}
           {view === 'link_error' && 'Your reset link is no longer valid'}
