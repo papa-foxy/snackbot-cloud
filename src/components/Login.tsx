@@ -311,7 +311,7 @@ export function ResetPassword() {
   const [loading, setLoading]   = useState(false);
   const [done, setDone]         = useState(false);
   const [error, setError]       = useState('');
-  const [ready, setReady]       = useState(false);
+  const [ready, setReady]       = useState(true);
   const [linkExpired, setLinkExpired] = useState(false);
 
   const isDark = settings.theme === 'dark'
