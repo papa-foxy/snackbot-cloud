@@ -53,7 +53,9 @@ type InsightSection =
   | 'payment_transactions'
   | 'table_customer'
   | 'staff_shift'
-  | 'inventory_stock';
+  | 'inventory_stock'
+  | 'eod_reports'
+  | 'session_reports';
 
 interface InsightConfig {
   id: InsightSection;
@@ -135,6 +137,8 @@ const INSIGHT_CONFIGS: InsightConfig[] = [
   { id: 'table_customer',       label: 'Table & Customer',       icon: Users,           color: 'blue',    description: 'Occupancy, turnover, customer count' },
   { id: 'staff_shift',          label: 'Staff & Shift',          icon: Clock,           color: 'purple',  description: 'Sales per staff, shift performance' },
   { id: 'inventory_stock',      label: 'Inventory & Stock',      icon: Package,         color: 'rose',    description: 'Low stock, usage trends' },
+  { id: 'eod_reports',          label: 'EOD Reports',            icon: Receipt,         color: 'blue',    description: 'Daily End of Day Reports (Z-Reports)' },
+  { id: 'session_reports',      label: 'Session Reports',        icon: Clock,           color: 'purple',  description: 'Cashier sessions and shift summaries' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -376,19 +380,44 @@ function useReportData(dateRange: DateRange, activeFilters: ActiveFilter[], over
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
   const [inventoryData, setInventoryData] = useState<any[]>([]);
 
+  // New EOD & Session States
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [eodReports, setEodReports] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<any[]>([]);
+
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     const merchantId = overrideMerchantId ?? await resolveMerchantId();
     if (!merchantId) { console.error('useReportData: no merchant_id'); setLoading(false); return; }
 
     try {
+      // 1. Fetch branches for the merchant
+      const { data: branchList } = await supabase
+        .from('branches')
+        .select('id, name')
+        .eq('merchant_id', merchantId);
+      const fetchedBranches = branchList || [];
+      setBranches(fetchedBranches);
+
+      let currentBranchId = selectedBranchId;
+      if (!currentBranchId && fetchedBranches.length > 0) {
+        currentBranchId = fetchedBranches[0].id;
+        setSelectedBranchId(currentBranchId);
+      }
+
+      // 2. Fetch orders filtered by merchant and branch
       let orderQuery = supabase
         .from('orders')
-        .select('id, order_number, total, subtotal, tax, discount, payment_method, order_type, status, created_at, waiter_id, cashier_id, table_id, notes, customer_id')
+        .select('id, order_number, total, subtotal, tax, discount, payment_method, order_type, status, created_at, waiter_id, cashier_id, table_id, notes, customer_id, branch_id')
         .eq('merchant_id', merchantId)
         .gte('created_at', dateRange.from.toISOString())
         .lte('created_at', dateRange.to.toISOString())
         .order('created_at', { ascending: true });
+
+      if (currentBranchId) {
+        orderQuery = orderQuery.eq('branch_id', currentBranchId);
+      }
 
       const typeValues = activeFilters.filter(f => f.type === 'order_type').map(f => f.value);
       if (typeValues.length > 0) orderQuery = orderQuery.in('order_type', typeValues);
@@ -401,7 +430,9 @@ function useReportData(dateRange: DateRange, activeFilters: ActiveFilter[], over
       const refundedOrders  = orders.filter((o: any) => ['cancelled', 'voided', 'refunded'].includes(o.status));
 
       if (orderTypeOptions.length === 0 || paymentOptions.length === 0) {
-        const { data: opts } = await supabase.from('orders').select('order_type, payment_method').eq('merchant_id', merchantId).eq('status', 'completed');
+        let optsQuery = supabase.from('orders').select('order_type, payment_method').eq('merchant_id', merchantId).eq('status', 'completed');
+        if (currentBranchId) optsQuery = optsQuery.eq('branch_id', currentBranchId);
+        const { data: opts } = await optsQuery;
         setOrderTypeOptions([...new Set((opts || []).map((o: any) => o.order_type).filter(Boolean))]);
         setPaymentOptions([...new Set((opts || []).map((o: any) => o.payment_method).filter(Boolean))]);
       }
@@ -611,15 +642,45 @@ function useReportData(dateRange: DateRange, activeFilters: ActiveFilter[], over
       setShiftData(Object.values(shiftMap));
 
       // Tables
-      const { data: tables } = await supabase.from('tables').select('id, status').eq('merchant_id', merchantId);
+      let tablesQuery = supabase.from('tables').select('id, status').eq('merchant_id', merchantId);
+      if (currentBranchId) tablesQuery = tablesQuery.eq('branch_id', currentBranchId);
+      const { data: tables } = await tablesQuery;
       const tArr = tables || []; const occupied = tArr.filter((t: any) => t.status === 'occupied').length;
       setTableStats({ total: tArr.length, occupied, available: tArr.length - occupied, occupancyRate: tArr.length ? Math.round((occupied / tArr.length) * 100) : 0 });
 
       // Inventory
-      const { data: inv } = await supabase.from('inventory').select('id, name, quantity, min_stock_level, unit, cost_per_unit, supplier').eq('merchant_id', merchantId);
+      let invQuery = supabase.from('inventory').select('id, name, quantity, min_stock_level, unit, cost_per_unit, supplier').eq('merchant_id', merchantId);
+      if (currentBranchId) invQuery = invQuery.eq('branch_id', currentBranchId);
+      const { data: inv } = await invQuery;
       const invArr = inv || [];
       setLowStockItems(invArr.filter((i: any) => Number(i.quantity) <= Number(i.min_stock_level)).sort((a: any, b: any) => Number(a.quantity) - Number(b.quantity)));
       setInventoryData(invArr.sort((a: any, b: any) => Number(a.quantity) - Number(b.quantity)).slice(0, 15));
+
+      // EOD Reports & Sessions Fetch
+      if (currentBranchId) {
+        const fromDateStr = dateRange.from.toISOString().split('T')[0];
+        const toDateStr = dateRange.to.toISOString().split('T')[0];
+        const { data: eodData } = await supabase.rpc('get_eod_reports', {
+          p_merchant_id: merchantId,
+          p_branch_id: currentBranchId,
+          p_from_date: fromDateStr,
+          p_to_date: toDateStr,
+        });
+        setEodReports(eodData || []);
+
+        const { data: shiftData } = await supabase
+          .from('shifts')
+          .select('*, users(name)')
+          .eq('merchant_id', merchantId)
+          .eq('branch_id', currentBranchId)
+          .gte('clock_in', dateRange.from.toISOString())
+          .lte('clock_in', dateRange.to.toISOString())
+          .order('clock_in', { ascending: false });
+        setShifts(shiftData || []);
+      } else {
+        setEodReports([]);
+        setShifts([]);
+      }
 
       setLastSynced(new Date());
     } catch (err) {
@@ -627,7 +688,7 @@ function useReportData(dateRange: DateRange, activeFilters: ActiveFilter[], over
     } finally {
       setLoading(false);
     }
-  }, [dateRange, activeFilters, overrideMerchantId]);
+  }, [dateRange, activeFilters, overrideMerchantId, selectedBranchId]);
 
   useEffect(() => { fetchReportData(); }, [fetchReportData]);
   useEffect(() => {
@@ -646,6 +707,7 @@ function useReportData(dateRange: DateRange, activeFilters: ActiveFilter[], over
     aovRows, hourlyRows, refundRows, discountRows, transactionRows,
     topItems, worstItems, categoryData, paymentData, orderTypeData,
     tableStats, staffData, shiftData, lowStockItems, inventoryData,
+    branches, selectedBranchId, setSelectedBranchId, eodReports, shifts,
   };
 }
 
@@ -1014,12 +1076,19 @@ function FilterSidebar({ activeFilters, orderTypeOptions, paymentOptions, catego
 // REPORT HEADER
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ReportHeader({ lastSynced, loading, dateRange, onDateRangeChange, visibleInsights, onToggleInsight, showAiDrawer, onToggleAiDrawer, onRefresh, onExportCSV, showFilter, onToggleFilter }: {
+function ReportHeader({
+  lastSynced, loading, dateRange, onDateRangeChange, visibleInsights, onToggleInsight,
+  showAiDrawer, onToggleAiDrawer, onRefresh, onExportCSV, showFilter, onToggleFilter,
+  branches, selectedBranchId, onBranchChange
+}: {
   lastSynced: Date | null; loading: boolean; dateRange: DateRange;
   onDateRangeChange: (r: DateRange) => void; visibleInsights: InsightSection[];
   onToggleInsight: (id: InsightSection) => void; showAiDrawer: boolean;
   onToggleAiDrawer: () => void; onRefresh: () => void; onExportCSV: () => void;
   showFilter: boolean; onToggleFilter: () => void;
+  branches: { id: string; name: string }[];
+  selectedBranchId: string;
+  onBranchChange: (id: string) => void;
 }) {
   const { themeColors } = useSettings();
   const [showDatePicker, setShowDatePicker]         = useState(false);
@@ -1131,6 +1200,23 @@ function ReportHeader({ lastSynced, loading, dateRange, onDateRangeChange, visib
           className="p-2 bg-white dark:bg-[var(--sb-card)] border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-500 dark:text-neutral-500 hover:bg-gray-50 dark:bg-neutral-800/50 disabled:opacity-50" title="Refresh">
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </button>
+
+        {/* Branch Selector */}
+        {branches.length > 0 && (
+          <div className="relative">
+            <select
+              value={selectedBranchId}
+              onChange={e => onBranchChange(e.target.value)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600 rounded-lg text-sm font-medium text-gray-700 dark:text-neutral-300 hover:bg-gray-50 dark:hover:bg-neutral-700/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              {branches.map(b => (
+                <option key={b.id} value={b.id} className="bg-white dark:bg-neutral-800 text-gray-700 dark:text-neutral-300">
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Date picker */}
         <div className="relative">
@@ -1372,18 +1458,19 @@ Data: ${JSON.stringify(ctx)}`;
 function TransactionReceiptModal({ order, onClose }: { order: any; onClose: () => void }) {
   const [items, setItems]         = useState<any[]>([]);
   const [business, setBusiness]   = useState<any>(null);
+  const [branch, setBranch]       = useState<any>(null);
+  const [orderRaw, setOrderRaw]   = useState<any>(null);
   const [tableName, setTableName] = useState('');
   const [staffName, setStaffName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [payment, setPayment]     = useState<any>(null);
-  const [promotion, setPromotion] = useState<any>(null);
-  const [loyaltyPts, setLoyaltyPts] = useState<number | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
 
   useEffect(() => {
     if (!order?.id) return;
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
 
     const run = async () => {
       try {
@@ -1397,14 +1484,35 @@ function TransactionReceiptModal({ order, onClose }: { order: any; onClose: () =
           .single();
         setBusiness(biz || null);
 
-        // 2. Order items
+        // 2. Fetch raw/full order to ensure we have branch_id etc.
+        const { data: rawOrd } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', order.id)
+          .single();
+        setOrderRaw(rawOrd || null);
+
+        // 3. Fetch branch details
+        const branchId = order.branch_id || rawOrd?.branch_id;
+        if (branchId) {
+          const { data: br } = await supabase
+            .from('branches')
+            .select('name, address, phone')
+            .eq('id', branchId)
+            .maybeSingle();
+          setBranch(br || null);
+        } else {
+          setBranch(null);
+        }
+
+        // 4. Order items
         const { data: rawItems, error: itemErr } = await supabase
           .from('order_items')
           .select('id, menu_id, variant_id, quantity, unit_price, subtotal, notes, status, modifier_note')
           .eq('order_id', order.id);
         if (itemErr) throw new Error(itemErr.message);
 
-        // 3. Menu names
+        // 5. Menu names
         const menuIds = [...new Set((rawItems || []).map((i: any) => i.menu_id).filter(Boolean))];
         let menuMap: Record<string, string> = {};
         if (menuIds.length > 0) {
@@ -1412,7 +1520,7 @@ function TransactionReceiptModal({ order, onClose }: { order: any; onClose: () =
           (menus || []).forEach((m: any) => { menuMap[m.id] = m.name; });
         }
 
-        // 4. Variant names
+        // 6. Variant names
         const variantIds = [...new Set((rawItems || []).map((i: any) => i.variant_id).filter(Boolean))];
         let variantMap: Record<string, string> = {};
         if (variantIds.length > 0) {
@@ -1426,50 +1534,41 @@ function TransactionReceiptModal({ order, onClose }: { order: any; onClose: () =
           variantName: variantMap[i.variant_id] || null,
         })));
 
-        // 5. Table name
-        if (order.table_id) {
-          const { data: tbl } = await supabase.from('tables').select('table_number').eq('id', order.table_id).single();
+        // 7. Table name
+        const tableId = order.table_id || rawOrd?.table_id;
+        if (tableId) {
+          const { data: tbl } = await supabase.from('tables').select('table_number').eq('id', tableId).single();
           setTableName(tbl?.table_number ? `Table ${tbl.table_number}` : '');
+        } else {
+          setTableName('');
         }
 
-        // 6. Staff name (waiter or cashier)
-        const staffId = order.waiter_id || order.cashier_id;
+        // 8. Staff name (waiter or cashier)
+        const staffId = rawOrd?.waiter_id || rawOrd?.cashier_id || order.waiter_id || order.cashier_id;
         if (staffId) {
-          const { data: user } = await supabase.from('users').select('name').eq('id', staffId).single();
+          const { data: user } = await supabase.from('users').select('name').eq('id', staffId).maybeSingle();
           setStaffName(user?.name || '');
+        } else {
+          setStaffName('');
         }
 
-        // 7. Customer name
-        if (order.customer_id) {
-          const { data: cust } = await supabase.from('customers').select('name, loyalty_points').eq('id', order.customer_id).single();
+        // 9. Customer name
+        const customerId = rawOrd?.customer_id || order.customer_id;
+        if (customerId) {
+          const { data: cust } = await supabase.from('customers').select('name').eq('id', customerId).maybeSingle();
           setCustomerName(cust?.name || '');
+        } else {
+          setCustomerName('');
         }
 
-        // 8. Payment details from payments table
+        // 10. Payment details
         const { data: payments } = await supabase
           .from('payments')
-          .select('method, amount, amount_tendered, change_amount, reference_no, status, provider_ref')
+          .select('method, amount, amount_tendered, change_amount, reference_no, status')
           .eq('order_id', order.id)
           .order('created_at', { ascending: false })
           .limit(1);
         setPayment(payments?.[0] || null);
-
-        // 9. Promotion applied
-        const { data: orderPromos } = await supabase
-          .from('order_promotions')
-          .select('discount_amount, promotion:promotion_id(name, promo_code, code)')
-          .eq('order_id', order.id)
-          .limit(1);
-        setPromotion(orderPromos?.[0] || null);
-
-        // 10. Loyalty points earned for this order
-        const { data: loyaltyTx } = await supabase
-          .from('loyalty_transactions')
-          .select('points, balance_after, type')
-          .eq('order_id', order.id)
-          .eq('type', 'earn')
-          .limit(1);
-        setLoyaltyPts(loyaltyTx?.[0]?.points ?? null);
 
       } catch (e: any) {
         setError(e.message || 'Failed to load receipt');
@@ -1488,163 +1587,285 @@ function TransactionReceiptModal({ order, onClose }: { order: any; onClose: () =
     return () => document.removeEventListener('keydown', h);
   }, [onClose]);
 
-  const subtotal   = Number(order.subtotal || 0);
-  const discount   = Number(order.discount || 0);
-  const tax        = Number(order.tax      || 0);
-  const total      = Number(order.total    || 0);
-  const isRefunded = ['cancelled', 'voided', 'refunded'].includes(order.status);
-  const promoName  = promotion?.promotion?.name || promotion?.promotion?.promo_code || promotion?.promotion?.code || '';
+  const subtotal      = Number(order.subtotal || 0);
+  const discount      = Number(order.discount || 0);
+  const serviceCharge = 0; // service_charge column does not exist in DB
+  const tax           = Number(order.tax      || 0);
+  const total         = Number(order.total    || 0);
+  const isVoided      = order.status === 'voided' || order.status === 'cancelled';
+  const isRefunded    = order.status === 'refunded';
+
+  const amountTendered = payment?.amount_tendered != null ? Number(payment.amount_tendered) : null;
+  const change         = payment?.change_amount != null ? Number(payment.change_amount) : null;
+  const payMethod      = payment?.method || order.payment_method || '';
+
+  const orderTypeLabel = (type: string) => {
+    switch (type) {
+      case 'dine_in': return 'Dine-in';
+      case 'takeaway': return 'Takeaway';
+      case 'delivery': return 'Delivery';
+      default: return type ? type.replace(/_/g, ' ') : '';
+    }
+  };
+
+  const methodDisplayName = (code: string) => {
+    if (!code) return '—';
+    switch (code.toLowerCase()) {
+      case 'cash': return 'Cash';
+      case 'card': return 'Card';
+      case 'ewallet':
+      case 'e_wallet': return 'E-Wallet';
+      case 'qr': return 'QR Pay';
+      case 'alipay':
+      case 'alipay+': return 'Alipay+';
+      case 'duitnow': return 'DuitNow';
+      default: return code;
+    }
+  };
+
+  const dottedLine = (
+    <div className="flex my-3 select-none">
+      {Array.from({ length: 36 }).map((_, idx) => (
+        <div key={idx} className="flex-1 h-[1px] bg-gray-300 dark:bg-neutral-700 mx-[1px]" />
+      ))}
+    </div>
+  );
+
+  const renderRow = (label: string, value: string, bold = false, valueColor?: string) => (
+    <div className={cn("flex justify-between items-start py-0.5 text-xs font-mono", bold && "font-bold")}>
+      <span className="text-gray-500 dark:text-neutral-400">{label}</span>
+      <span className={cn("text-gray-800 dark:text-neutral-200 text-right ml-8 capitalize font-medium", valueColor)}>{value || '—'}</span>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="relative bg-white text-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}>
-
-        {/* Close */}
-        <button onClick={onClose} className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
-          <X className="w-4 h-4 text-gray-600" />
-        </button>
-
-        {/* ① Store Header */}
-        <div className="px-8 pt-8 pb-5 border-b border-gray-200 text-center">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">① Store / Brand Header</p>
-          <h2 className="text-2xl font-bold text-gray-900">{business?.name || 'Merchant'}</h2>
-          {business?.address       && <p className="text-xs text-gray-500 mt-1">{business.address}</p>}
-          {business?.contact_number && <p className="text-xs text-gray-500">{business.contact_number}</p>}
-          {business?.receipt_header && <p className="text-xs text-gray-500 mt-1 italic">{business.receipt_header}</p>}
+      <div 
+        className="relative bg-white dark:bg-neutral-900 text-gray-800 dark:text-neutral-100 rounded-2xl shadow-2xl w-full max-w-[420px] max-h-[780px] flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Title Bar */}
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-neutral-800 flex justify-between items-center bg-white dark:bg-neutral-900 shrink-0">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-4.5 h-4.5 text-indigo-500" />
+            <span className="font-bold text-gray-900 dark:text-white text-sm">Receipt</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isVoided && (
+              <span className="bg-red-100 text-red-700 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider">
+                VOIDED
+              </span>
+            )}
+            {isRefunded && (
+              <span className="bg-amber-100 text-amber-700 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider">
+                REFUNDED
+              </span>
+            )}
+            <button onClick={onClose} className="p-1 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors">
+              <X className="w-4 h-4 text-gray-600 dark:text-neutral-400" />
+            </button>
+          </div>
         </div>
 
-        {/* ② Order Metadata */}
-        <div className="px-8 py-5 border-b border-dashed border-gray-200">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">② Order Metadata</p>
-          {([
-            ['Receipt no.',      order.order_number ? `#${order.order_number}` : `#${order.id?.slice(0,8).toUpperCase()}`],
-            ['Order type',       [order.order_type?.replace(/_/g,' '), tableName].filter(Boolean).join(' · ')],
-            ['Date & time',      new Date(order.created_at).toLocaleString('en-MY', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })],
-            ['Cashier / server', staffName || '—'],
-            customerName ? ['Customer', customerName] : null,
-          ] as any[]).filter(Boolean).map(([label, value]: string[]) => (
-            <div key={label} className="flex justify-between items-start py-1">
-              <span className="text-xs text-gray-500">{label}</span>
-              <span className="text-xs font-medium text-gray-800 text-right ml-8 capitalize">{value || '—'}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* ③ Line Items */}
-        <div className="px-8 py-5 border-b border-dashed border-gray-200">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">③ Line Items</p>
+        {/* Scrollable Receipt Body */}
+        <div className="flex-1 overflow-y-auto px-7 py-5 bg-gray-50 dark:bg-neutral-950">
           {loading ? (
-            <div className="space-y-2">{[1,2,3].map(i=><div key={i} className="h-5 bg-gray-100 rounded animate-pulse"/>)}</div>
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-xs text-gray-400 dark:text-neutral-500">Loading receipt details...</p>
+            </div>
           ) : error ? (
-            <p className="text-xs text-rose-500">{error}</p>
-          ) : items.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">No items found</p>
-          ) : items.map((item, i) => {
-            const isRefundedItem = item.status === 'refunded' || item.status === 'cancelled';
-            const lineTotal = Number(item.subtotal || (Number(item.unit_price||0) * Number(item.quantity||1)));
-            return (
-              <div key={i} className="mb-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-2 flex-1 min-w-0">
-                    <span className="text-sm text-gray-400 shrink-0 w-7">{item.quantity}×</span>
-                    <div className="min-w-0">
-                      <span className={cn('text-sm font-semibold', isRefundedItem ? 'line-through text-gray-400' : 'text-gray-900')}>
-                        {item.menuName}
-                      </span>
-                      {item.variantName && <span className="text-xs text-gray-400 ml-1">({item.variantName})</span>}
+            <div className="p-4 text-center text-rose-500 font-mono text-xs">{error}</div>
+          ) : (
+            <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl p-6 shadow-sm">
+              
+              {/* ① HEADER — Receipt Title & Branch Details */}
+              <div className="text-center">
+                <h4 className="text-sm font-extrabold tracking-widest font-mono text-gray-900 dark:text-white">RECEIPT</h4>
+                {dottedLine}
+                <div className="mt-2">
+                  <h5 className="text-sm font-bold tracking-wider uppercase text-gray-900 dark:text-white">
+                    {branch?.name ? branch.name : (business?.name || 'Snackbot')}
+                  </h5>
+                  {(branch?.address || business?.address) && (
+                    <p className="text-[11px] text-gray-500 dark:text-neutral-400 mt-1 whitespace-pre-wrap leading-relaxed">
+                      {branch?.address || business?.address}
+                    </p>
+                  )}
+                  {(branch?.phone || business?.phone) && (
+                    <p className="text-[11px] text-gray-500 dark:text-neutral-400 mt-0.5">
+                      Tel: {branch?.phone || business?.phone}
+                    </p>
+                  )}
+                  {(business?.ssm_number || business?.sst_number) && (
+                    <div className="text-[10px] text-gray-400 dark:text-neutral-500 mt-1.5 space-y-0.5 font-mono">
+                      {business?.ssm_number && <p>SSM: {business.ssm_number}</p>}
+                      {business?.sst_number && <p>SST ID: {business.sst_number}</p>}
                     </div>
+                  )}
+                  {business?.receipt_header && (
+                    <p className="text-[11px] text-gray-500 dark:text-neutral-400 mt-2 italic leading-relaxed">
+                      {business.receipt_header}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {dottedLine}
+
+              {/* ② TRANSACTION METADATA */}
+              <div className="space-y-0.5">
+                {renderRow('Receipt No.', order.order_number || order.id?.slice(0, 8).toUpperCase(), true)}
+                {renderRow('Date', new Date(order.created_at).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }))}
+                {renderRow('Time', new Date(order.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true }))}
+                {renderRow('Order Type', orderTypeLabel(order.order_type))}
+                {tableName && renderRow('Table', tableName)}
+                {(() => {
+                  const pax = Number(orderRaw?.pax || orderRaw?.guest_count || 0);
+                  return pax > 0 ? renderRow('Pax', String(pax)) : null;
+                })()}
+                {staffName && renderRow('Staff', staffName)}
+                {customerName && renderRow('Customer', customerName)}
+              </div>
+
+              {dottedLine}
+
+              {/* ③ ITEMIZED ORDER */}
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-wider mb-2">Items</p>
+                <div className="space-y-3 font-mono">
+                  {items.map((item, i) => {
+                    const isRefundedItem = item.status === 'refunded' || item.status === 'cancelled' || isVoided;
+                    const lineTotal = Number(item.subtotal || (Number(item.unit_price || 0) * Number(item.quantity || 1)));
+                    const displayName = item.variantName ? `${item.menuName} (${item.variantName})` : item.menuName;
+                    
+                    return (
+                      <div key={i} className="text-xs">
+                        <div className="flex justify-between items-start">
+                          <div className="flex gap-2 flex-1 min-w-0">
+                            <span className="text-gray-400 dark:text-neutral-500 shrink-0 w-6">{item.quantity}×</span>
+                            <span className={cn('font-medium text-gray-800 dark:text-neutral-200', isRefundedItem && 'line-through text-gray-400 dark:text-neutral-500')}>
+                              {displayName}
+                            </span>
+                          </div>
+                          <span className={cn('font-semibold shrink-0 ml-4 text-gray-900 dark:text-white', isRefundedItem && 'line-through text-gray-400 dark:text-neutral-500')}>
+                            RM {lineTotal.toFixed(2)}
+                          </span>
+                        </div>
+                        {item.quantity > 1 && (
+                          <div className="text-[10px] text-gray-400 dark:text-neutral-500 pl-6 mt-0.5">
+                            @ RM {Number(item.unit_price || 0).toFixed(2)} each
+                          </div>
+                        )}
+                        {item.modifier_note && (
+                          <div className="text-[10px] text-gray-400 dark:text-neutral-500 pl-6 mt-0.5">
+                            + {item.modifier_note}
+                          </div>
+                        )}
+                        {item.notes && (
+                          <div className="text-[10px] text-gray-400 dark:text-neutral-500 pl-6 mt-0.5 italic">
+                            Note: {item.notes}
+                          </div>
+                        )}
+                        {isRefundedItem && (
+                          <div className="text-[10px] text-red-500 pl-6 mt-1 flex items-center gap-1 font-semibold">
+                            <AlertTriangle className="w-3 h-3 shrink-0" /> {isVoided ? 'Voided' : 'Refunded / Cancelled'}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {dottedLine}
+
+              {/* ④ FINANCIAL SUMMARY */}
+              <div className="space-y-1">
+                {renderRow('Subtotal', `RM ${subtotal.toFixed(2)}`)}
+                {discount > 0 && (
+                  <div className="flex justify-between py-0.5 text-xs font-mono">
+                    <span className="text-gray-500 dark:text-neutral-400">Discount</span>
+                    <span className="text-indigo-600 dark:text-indigo-400 font-semibold">- RM {discount.toFixed(2)}</span>
                   </div>
-                  <span className={cn('text-sm font-semibold shrink-0 ml-4', isRefundedItem ? 'line-through text-gray-400' : 'text-gray-900')}>
-                    RM{lineTotal.toFixed(2)}
+                )}
+                {serviceCharge > 0 && renderRow('Service Charge (10%)', `RM ${serviceCharge.toFixed(2)}`)}
+                {tax > 0 && renderRow('Service Tax (6%)', `RM ${tax.toFixed(2)}`)}
+                
+                <div className="flex justify-between items-baseline mt-3 pt-3 border-t border-gray-200 dark:border-neutral-800">
+                  <span className="text-xs font-bold text-gray-900 dark:text-white">GRAND TOTAL</span>
+                  <span className={cn('text-base font-extrabold text-gray-900 dark:text-white',
+                    (isVoided || isRefunded) && 'text-red-500 dark:text-red-400 line-through'
+                  )}>
+                    RM {total.toFixed(2)}
                   </span>
                 </div>
-                {item.modifier_note && <p className="text-xs text-gray-400 ml-7">+ {item.modifier_note}</p>}
-                {item.notes         && <p className="text-xs text-gray-400 ml-7 italic">{item.notes}</p>}
-                {isRefundedItem && (
-                  <p className="text-xs text-amber-500 ml-7 flex items-center gap-1 mt-0.5">
-                    <AlertTriangle className="w-3 h-3"/> Out of stock — refunded
+              </div>
+
+              {dottedLine}
+
+              {/* ⑤ PAYMENT DETAILS */}
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-wider mb-2">Payment</p>
+                <div className="space-y-0.5">
+                  {renderRow('Method', methodDisplayName(payMethod))}
+                  {amountTendered != null && renderRow('Tendered', `RM ${amountTendered.toFixed(2)}`)}
+                  {change != null && change >= 0 && renderRow('Change', `RM ${change.toFixed(2)}`, true)}
+                  <div className="flex justify-between py-0.5 text-xs font-mono">
+                    <span className="text-gray-500 dark:text-neutral-400">Status</span>
+                    <span className={cn('font-bold',
+                      isVoided || isRefunded ? 'text-red-500 dark:text-red-400' : 'text-indigo-600 dark:text-indigo-400'
+                    )}>
+                      {isVoided ? 'VOIDED' : isRefunded ? 'REFUNDED' : 'PAID'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {dottedLine}
+
+              {/* ⑥ FOOTER */}
+              <div className="text-center text-[11px] text-gray-500 dark:text-neutral-400 space-y-2 mt-2">
+                {business?.receipt_footer ? (
+                  <p className="italic whitespace-pre-wrap">{business.receipt_footer}</p>
+                ) : (
+                  <>
+                    <p className="font-bold text-gray-900 dark:text-white">Thank you for dining with us!</p>
+                    <p>We hope to see you again soon.</p>
+                  </>
+                )}
+
+                {business?.wifi_password && (
+                  <p className="text-[10px] text-gray-400 dark:text-neutral-500 flex items-center justify-center gap-1 mt-2 font-mono">
+                    <Clock className="w-3.5 h-3.5 inline text-gray-400" /> Wi-Fi: {business.wifi_password}
                   </p>
                 )}
+
+                {(business?.instagram || business?.facebook) && (
+                  <div className="flex justify-center gap-3 text-[10px] text-gray-400 dark:text-neutral-500 mt-1 font-mono">
+                    {business?.instagram && <span>IG: @{business.instagram}</span>}
+                    {business?.facebook && <span>FB: {business.facebook}</span>}
+                  </div>
+                )}
+
+                <p className="text-[9px] text-gray-400 dark:text-neutral-500 pt-3 font-mono">
+                  Generated {new Date().toLocaleString('en-MY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}
+                </p>
               </div>
-            );
-          })}
-        </div>
 
-        {/* ④ Pricing Breakdown */}
-        <div className="px-8 py-5 border-b border-dashed border-gray-200">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">④ Pricing Breakdown</p>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span className="text-gray-800">RM{subtotal.toFixed(2)}</span></div>
-            {discount > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Discount{promoName ? ` — ${promoName}` : ''}</span>
-                <span className="text-emerald-600 font-medium">− RM{discount.toFixed(2)}</span>
-              </div>
-            )}
-            {tax > 0 && <div className="flex justify-between"><span className="text-gray-500">Tax</span><span className="text-gray-800">RM{tax.toFixed(2)}</span></div>}
-          </div>
-          <div className="flex justify-between items-baseline mt-4 pt-4 border-t border-gray-200">
-            <span className="text-lg font-bold text-gray-900">Total</span>
-            <span className={cn('text-2xl font-bold', isRefunded ? 'text-rose-500' : 'text-gray-900')}>RM{total.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* ⑤ Payment Details */}
-        <div className="px-8 py-5 border-b border-dashed border-gray-200">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">⑤ Payment Details</p>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Method</span>
-              <span className="text-gray-800 capitalize">{payment?.method || order.payment_method || '—'}</span>
             </div>
-            {payment?.amount_tendered != null && (
-              <div className="flex justify-between"><span className="text-gray-500">Amount tendered</span><span className="text-gray-800">RM{Number(payment.amount_tendered).toFixed(2)}</span></div>
-            )}
-            {payment?.change_amount != null && (
-              <div className="flex justify-between"><span className="text-gray-500">Change</span><span className="text-gray-800">RM{Number(payment.change_amount).toFixed(2)}</span></div>
-            )}
-            {payment?.reference_no && (
-              <div className="flex justify-between"><span className="text-gray-500">Reference</span><span className="text-gray-800 font-mono text-xs">{payment.reference_no}</span></div>
-            )}
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">Status</span>
-              <span className={cn('inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold',
-                order.status === 'refunded' ? 'bg-rose-100 text-rose-600'
-                : isRefunded ? 'bg-orange-100 text-orange-600'
-                : 'bg-emerald-100 text-emerald-700')}>
-                {order.status === 'refunded' ? 'Refunded' : isRefunded ? 'Voided' : 'Paid'}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* ⑥ Loyalty */}
-        {loyaltyPts != null && (
-          <div className="px-8 py-5 border-b border-dashed border-gray-200">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">⑥ Loyalty & Rewards</p>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Points earned</span>
-              <span className="text-emerald-600 font-semibold">+ {loyaltyPts} pts</span>
-            </div>
-          </div>
-        )}
-
-        {/* ⑦ Notes */}
-        {order.notes && (
-          <div className="px-8 py-5 border-b border-dashed border-gray-200">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">⑦ Notes</p>
-            <p className="text-xs text-gray-500 italic">{order.notes}</p>
-          </div>
-        )}
-
-        {/* ⑧ Footer */}
-        <div className="px-8 py-6 text-center bg-gray-50 rounded-b-2xl">
-          {business?.sst_number && <p className="text-xs text-gray-400">SST Reg. No.: {business.sst_number}</p>}
-          {business?.ssm_number && <p className="text-xs text-gray-400">SSM Reg. No.: {business.ssm_number}</p>}
-          <p className="text-sm text-gray-500 mt-2 font-medium">{business?.receipt_footer || 'Thank you for dining with us!'}</p>
-        </div>
-      </div>
+        {/* Dialog Close Button Bar */}
+        <div className="px-5 py-4 border-t border-gray-200 dark:border-neutral-800 flex bg-white dark:bg-neutral-900 shrink-0">
+          <button 
+            onClick={onClose}
+            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
+          >
+            Close
+          </button>
+        </div>      </div>
     </div>
   );
 }
@@ -1757,7 +1978,7 @@ function SalesRevenueSection({ loading, totalSales, grossSales, netSales, totalO
           badge={refundRows.length > 0 ? <span className="text-xs bg-white/20 text-white font-bold px-2 py-0.5 rounded-full">{refundRows.length}</span> : undefined} />
         {loading ? <SkeletonRows count={3} /> : refundRows.length === 0
           ? <p className="px-5 py-4 text-sm text-emerald-600 font-medium">✓ No refunds or voids in this period</p>
-          : <FlexTable cols={REFUND_COLS} rows={refundRows} tableId="refunds" />}
+          : <FlexTable cols={REFUND_COLS} rows={refundRows} tableId="refunds" onRowClick={setSelectedTx} />}
       </div>
 
       {/* Discounts */}
@@ -2052,6 +2273,390 @@ function InventoryStockSection({ loading, lowStockItems, inventoryData }: {
   );
 }
 
+interface EodReportReceiptModalProps {
+  eod: any;
+  onClose: () => void;
+}
+
+function EodReportReceiptModal({ eod, onClose }: EodReportReceiptModalProps) {
+  const d = (val: any) => Number(val || 0);
+  const s = (val: any) => String(val || '');
+
+  const grossSales = d(eod.gross_sales);
+  const discount = d(eod.discount);
+  const tax = d(eod.tax);
+  const grandTotal = d(eod.grand_total);
+  const cashSales = d(eod.cash_sales);
+  const cardSales = d(eod.card_sales);
+  const ewalletSales = d(eod.ewallet_sales);
+  const qrSales = d(eod.qr_sales);
+  const completedOrds = d(eod.completed_orders);
+  const voidedOrds = d(eod.voided_orders);
+  const voidedAmount = d(eod.voided_amount);
+  const openingCash = d(eod.opening_cash);
+  const closingCash = d(eod.closing_cash);
+  const expectedCash = d(eod.expected_cash);
+  const cashVariance = d(eod.cash_variance);
+  const printedBy = s(eod.printed_by);
+
+  const netSales = grossSales - discount;
+  const avgBasket = completedOrds > 0 ? grandTotal / completedOrds : 0;
+  const totalTendered = cashSales + cardSales + ewalletSales + qrSales;
+  const variance = totalTendered - grandTotal;
+
+  const reportDateStr = eod.report_date ? new Date(eod.report_date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  const generatedAtStr = eod.generated_at ? new Date(eod.generated_at).toLocaleString('en-MY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+
+  const dottedLine = <div className="border-t border-dashed border-gray-400 dark:border-neutral-500 my-2" />;
+  const solidLine = <div className="border-t border-gray-400 dark:border-neutral-500 my-3" />;
+
+  const renderRow = (label: string, value: string, isBold = false, isLarge = false) => (
+    <div className={cn("flex justify-between py-0.5 font-mono text-xs", isBold && "font-bold", isLarge && "text-sm font-bold")}>
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+
+  const renderIndentRow = (label: string, value: string) => (
+    <div className="flex justify-between py-0.5 font-mono text-xs text-gray-500 dark:text-neutral-400 pl-4">
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div 
+        className="relative bg-white dark:bg-neutral-900 text-gray-800 dark:text-neutral-100 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-neutral-800 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-indigo-500" />
+            <h3 className="font-bold text-gray-900 dark:text-white">Z-Report — End of Day</h3>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors">
+            <X className="w-5.5 h-5.5 text-gray-500 dark:text-neutral-400 hover:text-gray-700 dark:hover:text-neutral-200" />
+          </button>
+        </div>
+
+        {/* Scrollable Receipt Body */}
+        <div className="flex-1 overflow-y-auto px-8 py-6 select-none bg-gray-50 dark:bg-neutral-950">
+          <div className="max-w-sm mx-auto p-4 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 shadow-sm rounded-lg">
+            <div className="text-center mb-4">
+              <h4 className="font-mono text-sm font-bold tracking-wider uppercase">BRANCH CLOSEOUT</h4>
+              <p className="font-mono text-[10px] text-gray-500 dark:text-neutral-400">END-OF-DAY REPORT — Z-CLOSE</p>
+            </div>
+            
+            {solidLine}
+
+            {renderRow("Date", reportDateStr)}
+            {renderRow("Report ID", s(eod.id).substring(0, 8).toUpperCase())}
+            {renderRow("Cashier", printedBy)}
+            {renderRow("Opening Cash", fmt(openingCash))}
+            {generatedAtStr && renderRow("Generated", generatedAtStr)}
+
+            {solidLine}
+
+            <p className="font-mono text-xs font-bold text-gray-500 dark:text-neutral-400 py-1">1. SALES & REVENUE</p>
+            {dottedLine}
+            {renderRow("Gross Sales", fmt(grossSales))}
+            {dottedLine}
+            {renderIndentRow("Discounts", `- ${fmt(discount)}`)}
+            {renderIndentRow("Voided / Cancelled", `- ${fmt(voidedAmount)}`)}
+            {dottedLine}
+            {renderRow("Net Sales", fmt(netSales), true)}
+            {renderIndentRow("SST / Tax", `+ ${fmt(tax)}`)}
+            {dottedLine}
+            {renderRow("GRAND TOTAL", fmt(grandTotal), true, true)}
+
+            {solidLine}
+
+            <p className="font-mono text-xs font-bold text-gray-500 dark:text-neutral-400 py-1">2. TENDER BREAKDOWN</p>
+            {dottedLine}
+            {renderRow("Cash", fmt(cashSales))}
+            {renderRow("Card", fmt(cardSales))}
+            {renderRow("E-Wallet", fmt(ewalletSales))}
+            {renderRow("QR / DuitNow", fmt(qrSales))}
+            {dottedLine}
+            {renderRow("Total Tendered", fmt(totalTendered), true)}
+            {renderRow("Variance", `${variance >= 0 ? "+" : ""}${fmt(variance)}`)}
+            {renderRow("Status", Math.abs(variance) < 0.01 ? "BALANCED" : "DISCREPANCY", true)}
+
+            {solidLine}
+
+            <p className="font-mono text-xs font-bold text-gray-500 dark:text-neutral-400 py-1">3. CASH DRAWER</p>
+            {dottedLine}
+            {renderRow("Opening Float", fmt(openingCash))}
+            {renderRow("Cash Sales", `+ ${fmt(cashSales)}`)}
+            {dottedLine}
+            {renderRow("Expected in Drawer", fmt(expectedCash), true)}
+            {renderRow("Actual Cash Counted", fmt(closingCash), true)}
+            {dottedLine}
+            {renderRow(
+              "Over / Short", 
+              `${cashVariance >= 0 ? "+" : ""}${fmt(cashVariance)} (${Math.abs(cashVariance) < 0.01 ? "EXACT" : cashVariance > 0 ? "OVER" : "SHORT"})`, 
+              true
+            )}
+
+            {solidLine}
+
+            <p className="font-mono text-xs font-bold text-gray-500 dark:text-neutral-400 py-1">4. OPERATIONS</p>
+            {dottedLine}
+            {renderRow("Completed Orders", String(completedOrds))}
+            {renderRow("Voided Orders", `${voidedOrds} (${fmt(voidedAmount)})`)}
+            {renderRow("Avg Basket Size", fmt(avgBasket))}
+
+            {solidLine}
+
+            <div className="text-center text-[9px] text-gray-400 dark:text-neutral-500 space-y-1 mt-4">
+              <p>MANAGER APPROVED · ACCOUNTING COPY</p>
+              <p>Retain for 7 years per Malaysian tax regulation.</p>
+              <p className="font-bold mt-2">*** END OF REPORT ***</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-neutral-800 flex justify-end">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EodReportsSection({ loading, eodReports }: { loading: boolean; eodReports: any[] }) {
+  const [selectedEod, setSelectedEod] = useState<any | null>(null);
+
+  return (
+    <Section title="EOD Reports (Z-Reports)" icon={Receipt} color="blue">
+      {loading ? (
+        <SkeletonRows count={3} />
+      ) : eodReports.length === 0 ? (
+        <div className="p-8 text-center text-gray-450 dark:text-neutral-500 font-medium">
+          No EOD reports found for this date range.
+        </div>
+      ) : (
+        <div className="p-5 space-y-4">
+          <div className="grid gap-3">
+            {eodReports.map((eod: any) => {
+              const reportDate = new Date(eod.report_date);
+              const completedCount = Number(eod.completed_orders || 0);
+              const totalRevenue = Number(eod.grand_total || 0);
+              const cashVariance = Number(eod.cash_variance || 0);
+
+              const formattedDate = reportDate.toLocaleDateString('en-MY', { weekday: 'long', year: 'numeric', month: 'short', day: '2-digit' });
+
+              return (
+                <div 
+                  key={eod.id} 
+                  className="bg-white dark:bg-neutral-850 rounded-xl border border-gray-200 dark:border-neutral-700 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-indigo-300 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-neutral-700/50 flex items-center justify-center shrink-0">
+                      <Calendar className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-gray-900 dark:text-white">{formattedDate}</h4>
+                      <p className="text-xs text-gray-500 dark:text-neutral-400 mt-0.5">{completedCount} completed orders</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 ml-13 sm:ml-0">
+                    <div className="text-left sm:text-right">
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">Sales: {fmt(totalRevenue)}</p>
+                      <div className="mt-1 flex justify-start sm:justify-end">
+                        <span className={cn(
+                          'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                          cashVariance === 0 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-450 dark:border-emerald-900/50'
+                            : cashVariance < 0
+                              ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/50'
+                              : 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900/50'
+                        )}>
+                          {cashVariance === 0 
+                            ? 'Balanced' 
+                            : `Variance: ${cashVariance >= 0 ? "+" : ""}${fmt(cashVariance)}`}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => setSelectedEod(eod)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-indigo-200 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg text-xs font-semibold transition-colors shrink-0"
+                    >
+                      <Receipt className="w-3.5 h-3.5" />
+                      View Z-Report
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {selectedEod && (
+        <EodReportReceiptModal eod={selectedEod} onClose={() => setSelectedEod(null)} />
+      )}
+    </Section>
+  );
+}
+
+function SessionReportsSection({ loading, shifts, transactionRows }: { loading: boolean; shifts: any[]; transactionRows: any[] }) {
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+
+  // Reset to first page when shifts count changes
+  useEffect(() => {
+    setPage(0);
+  }, [shifts.length]);
+
+  const getCashierName = (shift: any) => {
+    const usersRaw = shift.users;
+    if (!usersRaw) return 'Unknown Cashier';
+    if (Array.isArray(usersRaw)) {
+      return usersRaw[0]?.name || 'Unknown Cashier';
+    }
+    return usersRaw.name || 'Unknown Cashier';
+  };
+
+  const formatDuration = (start: string, end: string | null) => {
+    if (!end) return 'Active Now';
+    const diffMs = new Date(end).getTime() - new Date(start).getTime();
+    const diffMins = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    if (hours === 0) return `${mins}m`;
+    return `${hours}h ${mins}m`;
+  };
+
+  const totalPages = Math.max(1, Math.ceil(shifts.length / pageSize));
+  const currentShifts = shifts.slice(page * pageSize, (page + 1) * pageSize);
+
+  return (
+    <Section title="Cashier Sessions (Shifts)" icon={Clock} color="purple">
+      {loading ? (
+        <SkeletonRows count={3} />
+      ) : shifts.length === 0 ? (
+        <div className="p-8 text-center text-gray-400 dark:text-neutral-500 font-medium">
+          No shift sessions found for this date range.
+        </div>
+      ) : (
+        <div className="p-5 space-y-4">
+          <div className="grid gap-3">
+            {currentShifts.map((shift: any) => {
+              const clockIn = new Date(shift.clock_in);
+              const clockOut = shift.clock_out ? new Date(shift.clock_out) : null;
+              const openingCash = Number(shift.opening_cash || 0);
+              const closingCash = shift.closing_cash !== null && shift.closing_cash !== undefined ? Number(shift.closing_cash) : null;
+              const notes = shift.notes || '';
+              const isShiftActive = !clockOut;
+              const cashierName = getCashierName(shift);
+
+              const shiftClockInTime = new Date(shift.clock_in).getTime();
+              const shiftClockOutTime = clockOut ? new Date(shift.clock_out).getTime() : null;
+
+              const shiftSales = transactionRows.reduce((sum: number, o: any) => {
+                if (o.status !== 'completed' && o.status !== 'paid') return sum;
+                const orderTime = new Date(o.created_at).getTime();
+                if (orderTime >= shiftClockInTime && (shiftClockOutTime === null || orderTime <= shiftClockOutTime)) {
+                  return sum + Number(o.total || 0);
+                }
+                return sum;
+              }, 0);
+
+              const formattedInDate = clockIn.toLocaleDateString('en-MY', { month: 'short', day: '2-digit', year: 'numeric' });
+              const formattedInTime = clockIn.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+              const formattedOutTime = clockOut ? clockOut.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }) : 'Present';
+              const durationStr = formatDuration(shift.clock_in, shift.clock_out);
+
+              return (
+                <div 
+                  key={shift.id} 
+                  className="bg-white dark:bg-neutral-850 rounded-xl border border-gray-200 dark:border-neutral-700 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-purple-300 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
+                      isShiftActive 
+                        ? 'bg-emerald-50 dark:bg-emerald-950/20' 
+                        : 'bg-purple-50 dark:bg-purple-950/20'
+                    )}>
+                      {isShiftActive ? (
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      ) : (
+                        <Clock className="w-5 h-5 text-purple-600" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-sm text-gray-900 dark:text-white">{cashierName}</h4>
+                        {isShiftActive && (
+                          <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-450 font-bold px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide leading-none">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-neutral-400 mt-1">
+                        {formattedInDate} • {formattedInTime} - {formattedOutTime} ({durationStr})
+                      </p>
+                      {notes && (
+                        <p className="text-xs text-amber-600 dark:text-amber-500 mt-1 italic">
+                          Note: {notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-start sm:items-end justify-center ml-13 sm:ml-0 text-left sm:text-right shrink-0">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">
+                      Sales: {fmt(shiftSales)}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-neutral-400 mt-0.5">
+                      Float: {fmt(openingCash)}
+                      {closingCash !== null && ` → ${fmt(closingCash)}`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-neutral-800 flex items-center justify-between mt-4">
+              <button 
+                onClick={() => setPage(p => Math.max(0, p - 1))} 
+                disabled={page === 0}
+                className="px-3 py-1.5 text-xs border border-gray-200 dark:border-neutral-800 rounded-lg font-medium text-gray-600 dark:text-neutral-400 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+              >
+                ← Previous
+              </button>
+              <span className="text-xs text-gray-500 dark:text-neutral-400 font-medium">
+                Page {page + 1} of {totalPages}
+              </span>
+              <button 
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} 
+                disabled={page === totalPages - 1}
+                className="px-3 py-1.5 text-xs border border-gray-200 dark:border-neutral-800 rounded-lg font-medium text-gray-600 dark:text-neutral-400 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </Section>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2152,6 +2757,9 @@ export function Reports() {
           onExportCSV={handleExportCSV}
           showFilter={showFilter}
           onToggleFilter={() => handleToggleFilter()}
+          branches={data.branches}
+          selectedBranchId={data.selectedBranchId}
+          onBranchChange={data.setSelectedBranchId}
         />
 
         <AIInsightDrawer
@@ -2189,6 +2797,8 @@ export function Reports() {
         {show('table_customer')       && <TableCustomerSection       loading={data.loading} tableStats={data.tableStats} totalOrders={data.totalOrders} />}
         {show('staff_shift')          && <StaffShiftSection          loading={data.loading} staffData={data.staffData} shiftData={data.shiftData} />}
         {show('inventory_stock')      && <InventoryStockSection      loading={data.loading} lowStockItems={data.lowStockItems} inventoryData={data.inventoryData} />}
+        {show('eod_reports')          && <EodReportsSection          loading={data.loading} eodReports={data.eodReports} />}
+        {show('session_reports')      && <SessionReportsSection      loading={data.loading} shifts={data.shifts} transactionRows={data.transactionRows} />}
       </div>
     </div>
   );

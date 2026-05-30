@@ -858,10 +858,7 @@ export function AcceptInvite({ currentUser }: UsersProps) {
   const canManage = isManager || isSupervisor;
 
   // ── Resolve active merchant ID ─────────────────────────────────────────────
-  // Added a safeguard around useImpersonation returning undefined
-  const impersonation = useImpersonation() || {};
-  const isImpersonating = impersonation.isImpersonating || false;
-  const impersonatedMerchantId = impersonation.merchantId || null;
+  const { isImpersonating, merchantId: impersonatedMerchantId } = useImpersonation();
   
   const getLocalMerchantId = () => {
     try { return JSON.parse(localStorage.getItem('snackbot_user') || '{}')?.merchant_id ?? null; }
