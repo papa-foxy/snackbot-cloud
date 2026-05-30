@@ -319,7 +319,6 @@ export function ResetPassword() {
   const accent = isDark ? (themeColors?.bg ?? 'bg-violet-600') : (themeColors?.bgLight ?? 'bg-violet-600');
 
   React.useEffect(() => {
-  // Check if Supabase bounced an error into the hash
   const hashErr = parseHashError();
   if (hashErr) {
     setLinkExpired(true);
@@ -327,19 +326,19 @@ export function ResetPassword() {
     return;
   }
 
-  // Check if session already exists (token already exchanged)
+  // Get session immediately - ConfirmationURL already exchanges the token
   supabase.auth.getSession().then(({ data: { session } }) => {
     if (session) setReady(true);
   });
 
   const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-      setReady(true);
-    }
+    if (event === 'PASSWORD_RECOVERY') setReady(true);
+    if (event === 'SIGNED_IN' && session) setReady(true);
   });
 
   return () => subscription.unsubscribe();
 }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) { setError('Passwords do not match.'); return; }
