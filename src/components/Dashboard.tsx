@@ -60,38 +60,38 @@ async function fetchConfig(merchantId: string): Promise<DashboardConfig> {
   const m: Record<string, string> = {};
   for (const row of data ?? []) m[row.key] = row.value;
   return {
-    defaultDateRange:      parseInt(m['dashboard_defaultDateRange']   ?? '7'),
-    defaultChartType:      m['dashboard_defaultChartType']            ?? 'bar',
-    advancedAnalytics:     m['dashboard_advancedAnalytics']           === 'true',
-    currency:              m['general_currency']                      ?? 'MYR',
-    businessName:          m['general_business_name']                 ?? '',
-    timezone:              m['general_timezone']                      ?? 'Asia/Kuala_Lumpur',
-    autoPrint:             m['general_autoPrint']                     === 'true',
-    showTax:               m['general_showTax']                      !== 'false',
-    taxInclusive:          m['tax_tax_inclusive']                     === 'true',
-    sstRate:               m['tax_sst_rate']                          ?? '6%',
-    lowStockAlert:         m['inventory_lowStockAlert']               === 'true',
-    lowStockThreshold:     parseInt(m['inventory_lowStockThreshold']  ?? '10'),
-    autoDeduction:         m['inventory_autoDeduction']               === 'true',
-    ingredientTracking:    m['inventory_ingredientTracking']          === 'true',
-    lowStockNotif:         m['notification_lowStockNotif']            === 'true',
-    unpaidAlert:           m['notification_unpaidAlert']              === 'true',
-    vipAlert:              m['notification_vipAlert']                 === 'true',
-    scheduledAlert:        m['notification_scheduledAlert']           === 'true',
-    emailSummary:          m['notification_emailSummary']             === 'true',
-    summaryEmail:          m['notification_summaryEmail']             ?? '',
-    autoRelease:           m['table_autoRelease']                     === 'true',
-    autoClose:             m['table_autoClose']                       === 'true',
-    qrOrdering:            m['table_qrOrdering']                     === 'true',
+    defaultDateRange: parseInt(m['dashboard_defaultDateRange'] ?? '7'),
+    defaultChartType: m['dashboard_defaultChartType'] ?? 'bar',
+    advancedAnalytics: m['dashboard_advancedAnalytics'] === 'true',
+    currency: m['general_currency'] ?? 'MYR',
+    businessName: m['general_business_name'] ?? '',
+    timezone: m['general_timezone'] ?? 'Asia/Kuala_Lumpur',
+    autoPrint: m['general_autoPrint'] === 'true',
+    showTax: m['general_showTax'] !== 'false',
+    taxInclusive: m['tax_tax_inclusive'] === 'true',
+    sstRate: m['tax_sst_rate'] ?? '6%',
+    lowStockAlert: m['inventory_lowStockAlert'] === 'true',
+    lowStockThreshold: parseInt(m['inventory_lowStockThreshold'] ?? '10'),
+    autoDeduction: m['inventory_autoDeduction'] === 'true',
+    ingredientTracking: m['inventory_ingredientTracking'] === 'true',
+    lowStockNotif: m['notification_lowStockNotif'] === 'true',
+    unpaidAlert: m['notification_unpaidAlert'] === 'true',
+    vipAlert: m['notification_vipAlert'] === 'true',
+    scheduledAlert: m['notification_scheduledAlert'] === 'true',
+    emailSummary: m['notification_emailSummary'] === 'true',
+    summaryEmail: m['notification_summaryEmail'] ?? '',
+    autoRelease: m['table_autoRelease'] === 'true',
+    autoClose: m['table_autoClose'] === 'true',
+    qrOrdering: m['table_qrOrdering'] === 'true',
     defaultDiningDuration: parseInt(m['table_defaultDiningDuration'] ?? '60'),
-    sessionTimeout:        parseInt(m['security_sessionTimeout']     ?? '30'),
-    loyaltyEnable:         m['loyalty_loyaltyEnable']                 === 'true',
-    pointsPerRm:           parseFloat(m['loyalty_pointsPerRm']       ?? '1'),
-    pointsExpiry:          parseInt(m['loyalty_pointsExpiry']        ?? '365'),
-    promoCode:             m['loyalty_promoCode']                     === 'true',
-    scheduledPromotions:   m['loyalty_scheduledPromotions']          === 'true',
-    offlineMode:           m['cloud_offlineMode']                     === 'true',
-    syncFrequency:         m['cloud_syncFrequency']                   ?? 'realtime',
+    sessionTimeout: parseInt(m['security_sessionTimeout'] ?? '30'),
+    loyaltyEnable: m['loyalty_loyaltyEnable'] === 'true',
+    pointsPerRm: parseFloat(m['loyalty_pointsPerRm'] ?? '1'),
+    pointsExpiry: parseInt(m['loyalty_pointsExpiry'] ?? '365'),
+    promoCode: m['loyalty_promoCode'] === 'true',
+    scheduledPromotions: m['loyalty_scheduledPromotions'] === 'true',
+    offlineMode: m['cloud_offlineMode'] === 'true',
+    syncFrequency: m['cloud_syncFrequency'] ?? 'realtime',
   };
 }
 
@@ -107,14 +107,14 @@ const calcChange = (a: number, b: number) => {
 
 export function StatCard({ title, value, trend, isPositive, icon: Icon, color, loading, isDark }: any) {
   const colorMap: Record<string, { bg: string; text: string; border: string }> = {
-    indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-600',  border: 'border-indigo-200'  },
+    indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-200' },
     emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' },
-    amber:   { bg: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-amber-200'   },
-    rose:    { bg: 'bg-rose-50',    text: 'text-rose-600',    border: 'border-rose-200'    },
-    blue:    { bg: 'bg-blue-50',    text: 'text-blue-600',    border: 'border-blue-200'    },
+    amber: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' },
+    rose: { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-200' },
+    blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
     fuchsia: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-600', border: 'border-fuchsia-200' },
-    cyan:    { bg: 'bg-cyan-50',    text: 'text-cyan-600',    border: 'border-cyan-200'    },
-    purple:  { bg: 'bg-purple-50',  text: 'text-purple-600',  border: 'border-purple-200'  },
+    cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600', border: 'border-cyan-200' },
+    purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
   };
 
   const c = colorMap[color] ?? colorMap.indigo;
@@ -166,10 +166,10 @@ export function StatCard({ title, value, trend, isPositive, icon: Icon, color, l
 
 export function AlertsPanel({ alerts, isDark }: { alerts: any[]; isDark?: boolean }) {
   const cfg: Record<string, { icon: any; text: string; bg: string; border: string; dot: string }> = {
-    warning: { icon: AlertTriangle, text: 'text-amber-800 dark:text-amber-200',     bg: 'bg-amber-50 dark:bg-transparent',     border: 'border-amber-200',   dot: 'bg-amber-500'   },
-    danger:  { icon: ShieldAlert,   text: 'text-rose-800 dark:text-rose-200',       bg: 'bg-rose-50 dark:bg-transparent',       border: 'border-rose-200',    dot: 'bg-rose-500'    },
-    info:    { icon: Info,          text: 'text-blue-800 dark:text-blue-200',       bg: 'bg-blue-50 dark:bg-transparent',       border: 'border-blue-200',    dot: 'bg-blue-500'    },
-    success: { icon: CheckCircle2,  text: 'text-emerald-800 dark:text-emerald-200', bg: 'bg-emerald-50 dark:bg-transparent',   border: 'border-emerald-200', dot: 'bg-emerald-500' },
+    warning: { icon: AlertTriangle, text: 'text-amber-800 dark:text-amber-200', bg: 'bg-amber-50 dark:bg-transparent', border: 'border-amber-200', dot: 'bg-amber-500' },
+    danger: { icon: ShieldAlert, text: 'text-rose-800 dark:text-rose-200', bg: 'bg-rose-50 dark:bg-transparent', border: 'border-rose-200', dot: 'bg-rose-500' },
+    info: { icon: Info, text: 'text-blue-800 dark:text-blue-200', bg: 'bg-blue-50 dark:bg-transparent', border: 'border-blue-200', dot: 'bg-blue-500' },
+    success: { icon: CheckCircle2, text: 'text-emerald-800 dark:text-emerald-200', bg: 'bg-emerald-50 dark:bg-transparent', border: 'border-emerald-200', dot: 'bg-emerald-500' },
   };
 
   return (
@@ -229,10 +229,10 @@ export function OperationalStatus({ activeTables, totalTables, openOrders, longe
       </div>
       <div className="space-y-2 flex-1">
         {[
-          { label: 'Active Tables',      value: `${activeTables} / ${totalTables}`, cls: 'text-gray-900 dark:text-neutral-100' },
-          { label: 'Longest Open Table', value: `${longestTableTime} mins`,          cls: 'text-amber-600' },
-          { label: 'Pending Orders',     value: `${openOrders} orders`,              cls: 'text-rose-600'  },
-          { label: 'Idle Tables (>15m)', value: `${idleTables} tables`,              cls: 'text-gray-900 dark:text-neutral-100' },
+          { label: 'Active Tables', value: `${activeTables} / ${totalTables}`, cls: 'text-gray-900 dark:text-neutral-100' },
+          { label: 'Longest Open Table', value: `${longestTableTime} mins`, cls: 'text-amber-600' },
+          { label: 'Pending Orders', value: `${openOrders} orders`, cls: 'text-rose-600' },
+          { label: 'Idle Tables (>15m)', value: `${idleTables} tables`, cls: 'text-gray-900 dark:text-neutral-100' },
         ].map(({ label, value, cls }) => (
           <div key={label} className="flex justify-between items-center px-3 py-2 bg-gray-50 dark:bg-neutral-800/50 rounded-lg">
             <span className="text-xs font-medium text-gray-500 dark:text-neutral-400">{label}</span>
@@ -294,7 +294,7 @@ export function RevenueBreakdown({ categoryData, paymentData, loading, isDark, d
             ) : paymentData.length > 0 ? (
               paymentData.map((method, i) => {
                 const total = paymentData.reduce((sum, m) => sum + m.value, 0);
-                const pct   = total > 0 ? (method.value / total) * 100 : 0;
+                const pct = total > 0 ? (method.value / total) * 100 : 0;
                 return (
                   <div key={i} className="space-y-1">
                     <div className="flex justify-between text-xs">
@@ -362,8 +362,8 @@ export function SalesChart({ data, loading, chartType = 'area', isDark, dateRang
       <AreaChart data={data} margin={margin}>
         <defs>
           <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#4f46e5" stopOpacity={0.18} />
-            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}    />
+            <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.18} />
+            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
           </linearGradient>
         </defs>
         {sharedAxis}
@@ -453,10 +453,10 @@ function NotificationBell({ alerts, isDark }: { alerts: { type: string; message:
   }, []);
 
   const cfg: Record<string, { icon: any; cls: string; bg: string; text: string }> = {
-    warning: { icon: AlertTriangle, cls: 'text-amber-500',   bg: 'bg-amber-50 dark:bg-amber-500/10',     text: 'text-gray-800 dark:text-amber-200'   },
-    danger:  { icon: AlertTriangle, cls: 'text-red-500',     bg: 'bg-red-50 dark:bg-red-500/10',         text: 'text-gray-800 dark:text-red-200'     },
-    info:    { icon: Info,          cls: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-500/10',       text: 'text-gray-800 dark:text-blue-200'    },
-    success: { icon: CheckCircle2,  cls: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-gray-800 dark:text-emerald-200' },
+    warning: { icon: AlertTriangle, cls: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-gray-800 dark:text-amber-200' },
+    danger: { icon: AlertTriangle, cls: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10', text: 'text-gray-800 dark:text-red-200' },
+    info: { icon: Info, cls: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10', text: 'text-gray-800 dark:text-blue-200' },
+    success: { icon: CheckCircle2, cls: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-gray-800 dark:text-emerald-200' },
   };
 
   return (
@@ -518,15 +518,15 @@ function NotificationBell({ alerts, isDark }: { alerts: { type: string; message:
 
 function ActiveSettingChips({ config }: { config: DashboardConfig }) {
   const chips = [
-    config.taxInclusive       && { label: `Tax Incl. · ${config.sstRate}`,                         color: 'bg-amber-100 text-amber-700 border-amber-200'      },
-    config.loyaltyEnable      && { label: `Loyalty · ${config.pointsPerRm}pt/${config.currency}1`, color: 'bg-pink-100 text-pink-700 border-pink-200'         },
-    config.promoCode          && { label: 'Promo Codes',                                            color: 'bg-violet-100 text-violet-700 border-violet-200'   },
-    config.qrOrdering         && { label: 'QR Order',                                              color: 'bg-cyan-100 text-cyan-700 border-cyan-200'         },
-    config.autoPrint          && { label: 'Auto-Print',                                            color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-    config.autoDeduction      && { label: 'Auto Stock',                                            color: 'bg-teal-100 text-teal-700 border-teal-200'         },
-    config.ingredientTracking && { label: 'Ingredient Tracking',                                   color: 'bg-lime-100 text-lime-700 border-lime-200'         },
-    config.autoClose          && { label: 'Auto-Close',                                            color: 'bg-rose-100 text-rose-700 border-rose-200'         },
-    config.offlineMode        && { label: 'Offline',                                               color: 'bg-slate-100 text-slate-600 border-slate-200'      },
+    config.taxInclusive && { label: `Tax Incl. · ${config.sstRate}`, color: 'bg-amber-100 text-amber-700 border-amber-200' },
+    config.loyaltyEnable && { label: `Loyalty · ${config.pointsPerRm}pt/${config.currency}1`, color: 'bg-pink-100 text-pink-700 border-pink-200' },
+    config.promoCode && { label: 'Promo Codes', color: 'bg-violet-100 text-violet-700 border-violet-200' },
+    config.qrOrdering && { label: 'QR Order', color: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
+    config.autoPrint && { label: 'Auto-Print', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    config.autoDeduction && { label: 'Auto Stock', color: 'bg-teal-100 text-teal-700 border-teal-200' },
+    config.ingredientTracking && { label: 'Ingredient Tracking', color: 'bg-lime-100 text-lime-700 border-lime-200' },
+    config.autoClose && { label: 'Auto-Close', color: 'bg-rose-100 text-rose-700 border-rose-200' },
+    config.offlineMode && { label: 'Offline', color: 'bg-slate-100 text-slate-600 border-slate-200' },
   ].filter(Boolean) as { label: string; color: string }[];
 
   if (chips.length === 0) return null;
@@ -596,7 +596,7 @@ function LoyaltyBanner({ config, members, points, isDark }: { config: DashboardC
         <p className="text-sm font-semibold text-gray-900 dark:text-neutral-100">Loyalty Program Active</p>
         <p className="text-xs text-gray-500 dark:text-neutral-500 mt-0.5">
           {config.pointsPerRm} pt per {config.currency} 1 · expires {config.pointsExpiry}d
-          {config.promoCode           && <span className="ml-2 text-violet-600 dark:text-violet-300">· Promo on</span>}
+          {config.promoCode && <span className="ml-2 text-violet-600 dark:text-violet-300">· Promo on</span>}
           {config.scheduledPromotions && <span className="ml-2 text-indigo-600 dark:text-indigo-300">· Auto-promos on</span>}
         </p>
       </div>
@@ -633,7 +633,7 @@ function TopItemsPanel({ items, currency, isDark }: { items: any[]; currency: st
       </div>
       <div className="divide-y divide-gray-50 dark:divide-neutral-800">
         {items.map((item, i) => {
-          const pct    = items[0]?.revenue > 0 ? (item.revenue / items[0].revenue) * 100 : 0;
+          const pct = items[0]?.revenue > 0 ? (item.revenue / items[0].revenue) * 100 : 0;
           const medals = ['🥇', '🥈', '🥉'];
           return (
             <div key={i} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition-colors">
@@ -673,12 +673,12 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
     || (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const { isImpersonating, merchantId: impersonatedMerchantId } = useImpersonation();
 
-  const [aiSummary, setAiSummary]         = useState<string | null>(null);
-  const [generating, setGenerating]       = useState(false);
-  const [config, setConfig]               = useState<DashboardConfig>(CONFIG_DEFAULTS);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [config, setConfig] = useState<DashboardConfig>(CONFIG_DEFAULTS);
   // 0 = Today (default), positive numbers = last N days
-  const [dateRange, setDateRange]         = useState(0);
-  const [lastUpdated, setLastUpdated]     = useState<Date | null>(null);
+  const [dateRange, setDateRange] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
 
   const getLocalMerchantId = () => {
@@ -704,22 +704,22 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
   const fetchDashboardData = async () => {
     if (!activeMerchantId) { console.warn('[Dashboard] no activeMerchantId'); return null; }
 
-    const now         = new Date();
-    const todayStart  = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const todayEnd    = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     // dateRange === 0 means "Today only"; otherwise last N days from start of today
-    const rangeStart  = dateRange === 0
+    const rangeStart = dateRange === 0
       ? todayStart
       : new Date(todayStart.getTime() - dateRange * 24 * 60 * 60 * 1000);
-    const rangeEnd    = todayEnd;
+    const rangeEnd = todayEnd;
 
     // Yesterday window (always used for trend comparison)
-    const yestStart   = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
-    const yestEnd     = new Date(todayStart.getTime() - 1);
+    const yestStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    const yestEnd = new Date(todayStart.getTime() - 1);
 
     // Fetch range orders + yesterday for trend (if dateRange === 0 we need yesterday separately)
-    const fetchFrom   = dateRange === 0 ? yestStart : rangeStart;
+    const fetchFrom = dateRange === 0 ? yestStart : rangeStart;
 
     const { data: allOrders, error } = await supabase
       .from('orders')
@@ -733,28 +733,28 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
     const orders = allOrders || [];
 
     // Split into range-window orders and yesterday orders
-    const rangeOrders     = orders.filter(o => new Date(o.created_at) >= rangeStart);
+    const rangeOrders = orders.filter(o => new Date(o.created_at) >= rangeStart);
     const completedOrders = rangeOrders.filter(o => o.status === 'completed');
-    const openOrders      = rangeOrders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
+    const openOrders = rangeOrders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
 
-    const yestOrders      = orders.filter(o => {
+    const yestOrders = orders.filter(o => {
       const d = new Date(o.created_at);
       return d >= yestStart && d <= yestEnd && o.status === 'completed';
     });
 
     // KPI stats over selected range
-    const totalRevenue  = completedOrders.reduce((s, o) => s + (o.total    || 0), 0);
-    const totalTax      = completedOrders.reduce((s, o) => s + (o.tax      || 0), 0);
+    const totalRevenue = completedOrders.reduce((s, o) => s + (o.total || 0), 0);
+    const totalTax = completedOrders.reduce((s, o) => s + (o.tax || 0), 0);
     const totalDiscount = completedOrders.reduce((s, o) => s + (o.discount || 0), 0);
-    const netSales      = config.taxInclusive ? totalRevenue : totalRevenue - totalTax - totalDiscount;
-    const totalTx       = completedOrders.length;
-    const aov           = totalTx > 0 ? totalRevenue / totalTx : 0;
-    const customers     = completedOrders.reduce((s, o) => s + (o.order_type === 'dine_in' ? 2 : 1), 0);
+    const netSales = config.taxInclusive ? totalRevenue : totalRevenue - totalTax - totalDiscount;
+    const totalTx = completedOrders.length;
+    const aov = totalTx > 0 ? totalRevenue / totalTx : 0;
+    const customers = completedOrders.reduce((s, o) => s + (o.order_type === 'dine_in' ? 2 : 1), 0);
 
     // Yesterday comparison
     const yestRevenue = yestOrders.reduce((s, o) => s + (o.total || 0), 0);
-    const yestTx      = yestOrders.length;
-    const yestAov     = yestTx > 0 ? yestRevenue / yestTx : 0;
+    const yestTx = yestOrders.length;
+    const yestAov = yestTx > 0 ? yestRevenue / yestTx : 0;
 
     // Chart data — for Today show hourly, for multi-day show daily
     let chartData: { name: string; sales: number }[] = [];
@@ -780,7 +780,7 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
         dailyMap[key] = 0;
       }
       completedOrders.forEach(o => {
-        const d   = new Date(o.created_at);
+        const d = new Date(o.created_at);
         const key = `${days[d.getDay()]} ${d.getDate()}`;
         if (key in dailyMap) dailyMap[key] += o.total || 0;
       });
@@ -789,7 +789,7 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
 
     // Order items scoped to the same range via order ids
     const completedIds = completedOrders.map(o => o.id);
-    let topItems: any[]     = [];
+    let topItems: any[] = [];
     let categoryData: any[] = [];
 
     if (completedIds.length > 0) {
@@ -799,18 +799,18 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
         .in('order_id', completedIds);
 
       const itemAgg: Record<string, { name: string; sales: number; revenue: number }> = {};
-      const catAgg:  Record<string, number> = {};
+      const catAgg: Record<string, number> = {};
 
       (itemsData || []).forEach((item: any) => {
         const name = item.menu?.name || 'Unknown';
         if (!itemAgg[name]) itemAgg[name] = { name, sales: 0, revenue: 0 };
-        itemAgg[name].sales   += item.quantity || 0;
+        itemAgg[name].sales += item.quantity || 0;
         itemAgg[name].revenue += item.subtotal || 0;
         const cat = item.menu?.menu_categories?.name || 'Uncategorized';
         catAgg[cat] = (catAgg[cat] || 0) + (item.subtotal || 0);
       });
 
-      topItems     = Object.values(itemAgg).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+      topItems = Object.values(itemAgg).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
       categoryData = Object.entries(catAgg).map(([name, value]) => ({ name, value }));
     }
 
@@ -821,7 +821,7 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
 
     const { data: tables } = await supabase.from('tables').select('status, updated_at').eq('merchant_id', activeMerchantId);
     const activeTables = tables?.filter(t => t.status === 'occupied').length || 0;
-    const totalTables  = tables?.length || 0;
+    const totalTables = tables?.length || 0;
     let longestTableTime = 0, idleTables = 0;
     tables?.forEach(t => {
       if (t.status === 'occupied' && t.updated_at) {
@@ -839,18 +839,18 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
     if (config.loyaltyEnable) {
       const { data: loyaltyData } = await supabase.from('customers').select('loyalty_points').eq('merchant_id', activeMerchantId).not('loyalty_points', 'is', null);
       loyaltyMembers = loyaltyData?.length || 0;
-      totalPoints    = loyaltyData?.reduce((s, c) => s + (c.loyalty_points || 0), 0) || 0;
+      totalPoints = loyaltyData?.reduce((s, c) => s + (c.loyalty_points || 0), 0) || 0;
     }
 
     const now2 = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: config.timezone });
     const alerts: { type: string; message: string; time?: string }[] = [];
-    if (config.unpaidAlert && openOrders.length > 5)   alerts.push({ type: 'info',    message: `${openOrders.length} orders pending payment`,                     time: now2 });
-    if (config.vipAlert)                               alerts.push({ type: 'info',    message: 'VIP customer alerts are active',                                   time: now2 });
-    if (config.scheduledAlert)                         alerts.push({ type: 'info',    message: 'Scheduled menu item alerts are active',                            time: now2 });
+    if (config.unpaidAlert && openOrders.length > 5) alerts.push({ type: 'info', message: `${openOrders.length} orders pending payment`, time: now2 });
+    if (config.vipAlert) alerts.push({ type: 'info', message: 'VIP customer alerts are active', time: now2 });
+    if (config.scheduledAlert) alerts.push({ type: 'info', message: 'Scheduled menu item alerts are active', time: now2 });
     const voided = rangeOrders.filter(o => o.status === 'voided').length;
-    if (voided > 3)                                    alerts.push({ type: 'danger',  message: `High void activity: ${voided} in period`,                          time: now2 });
-    if (config.autoRelease && idleTables > 0)          alerts.push({ type: 'warning', message: `${idleTables} tables idle past ${config.defaultDiningDuration}m`,  time: now2 });
-    if (completedOrders.length > 0)                    alerts.push({ type: 'success', message: `${completedOrders.length} orders completed`,                       time: now2 });
+    if (voided > 3) alerts.push({ type: 'danger', message: `High void activity: ${voided} in period`, time: now2 });
+    if (config.autoRelease && idleTables > 0) alerts.push({ type: 'warning', message: `${idleTables} tables idle past ${config.defaultDiningDuration}m`, time: now2 });
+    if (completedOrders.length > 0) alerts.push({ type: 'success', message: `${completedOrders.length} orders completed`, time: now2 });
 
     const { data: users } = await supabase.from('users').select('id, name').eq('merchant_id', activeMerchantId);
     const staffAgg: Record<string, { name: string; sales: number; orders: number }> = {};
@@ -858,7 +858,7 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
       if (o.waiter_id) {
         const name = users?.find(u => u.id === o.waiter_id)?.name || 'Unknown';
         if (!staffAgg[name]) staffAgg[name] = { name, sales: 0, orders: 0 };
-        staffAgg[name].sales  += o.total || 0;
+        staffAgg[name].sales += o.total || 0;
         staffAgg[name].orders += 1;
       }
     });
@@ -871,8 +871,8 @@ export function Dashboard({ onNavigatePage }: { onNavigatePage?: (tab: string) =
         activeTables, totalTables, openOrders: openOrders.length, customers,
         longestTableTime, idleTables, voidedToday: voided,
         revenueChange: calcChange(totalRevenue, yestRevenue),
-        txChange:      calcChange(totalTx,      yestTx),
-        aovChange:     calcChange(aov,          yestAov),
+        txChange: calcChange(totalTx, yestTx),
+        aovChange: calcChange(aov, yestAov),
         loyaltyMembers, totalPoints,
       },
       chartData, topItems, categoryData, paymentData, alerts, staffData,
@@ -898,7 +898,7 @@ ${config.loyaltyEnable ? `Loyalty: ${data.stats.loyaltyMembers} members, ${data.
 Top Items: ${data.topItems.map((i: any) => `${i.name}(${i.sales})`).join(', ')}
 Alerts: ${data.alerts.map((a: any) => a.message).join('; ') || 'None'}
 Write a concise 2-3 paragraph professional manager briefing. Be actionable.`;
-      const response = await ai.models.generateContent({ model: 'gemini-2.0-flash', contents: prompt });
+      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
       setAiSummary(response.text || 'Could not generate summary.');
     } catch {
       setAiSummary('Failed to generate AI summary. Please try again.');
@@ -981,17 +981,17 @@ Write a concise 2-3 paragraph professional manager briefing. Be actionable.`;
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3">
-        <StatCard isDark={isDark} title={t('stat.totalSales', 'Total Sales')}     value={fmt(s?.revenue   ?? 0)} trend={s?.revenueChange} isPositive={s?.revenueChange?.startsWith('+')} icon={DollarSign}   color="indigo"  loading={loading} />
+        <StatCard isDark={isDark} title={t('stat.totalSales', 'Total Sales')} value={fmt(s?.revenue ?? 0)} trend={s?.revenueChange} isPositive={s?.revenueChange?.startsWith('+')} icon={DollarSign} color="indigo" loading={loading} />
         {config.showTax && (
-          <StatCard isDark={isDark} title={t('stat.netSales', 'Net Sales')}       value={fmt(s?.netSales  ?? 0)} trend={s?.revenueChange} isPositive={s?.revenueChange?.startsWith('+')} icon={TrendingUp}   color="emerald" loading={loading} />
+          <StatCard isDark={isDark} title={t('stat.netSales', 'Net Sales')} value={fmt(s?.netSales ?? 0)} trend={s?.revenueChange} isPositive={s?.revenueChange?.startsWith('+')} icon={TrendingUp} color="emerald" loading={loading} />
         )}
-        <StatCard isDark={isDark} title={t('stat.orders', 'Orders')}              value={(s?.transactions ?? 0).toLocaleString()} trend={s?.txChange}  isPositive={s?.txChange?.startsWith('+')}  icon={ShoppingCart} color="blue"    loading={loading} />
-        <StatCard isDark={isDark} title={t('stat.aov', 'Avg Order Value')}        value={fmt(s?.aov       ?? 0)} trend={s?.aovChange}    isPositive={s?.aovChange?.startsWith('+')}    icon={CreditCard}   color="amber"   loading={loading} />
-        <StatCard isDark={isDark} title={t('stat.tables', 'Active Tables')}       value={`${s?.activeTables ?? 0} / ${s?.totalTables ?? 0}`} trend={null} isPositive={true} icon={LayoutGrid}   color="rose"    loading={loading} />
-        <StatCard isDark={isDark} title={t('stat.open', 'Open Orders')}           value={(s?.openOrders   ?? 0).toString()} trend={null} isPositive={true} icon={Receipt}      color="fuchsia" loading={loading} />
-        <StatCard isDark={isDark} title={t('stat.customers', 'Customers')}        value={(s?.customers    ?? 0).toString()} trend={null} isPositive={true} icon={Users}        color="cyan"    loading={loading} />
+        <StatCard isDark={isDark} title={t('stat.orders', 'Orders')} value={(s?.transactions ?? 0).toLocaleString()} trend={s?.txChange} isPositive={s?.txChange?.startsWith('+')} icon={ShoppingCart} color="blue" loading={loading} />
+        <StatCard isDark={isDark} title={t('stat.aov', 'Avg Order Value')} value={fmt(s?.aov ?? 0)} trend={s?.aovChange} isPositive={s?.aovChange?.startsWith('+')} icon={CreditCard} color="amber" loading={loading} />
+        <StatCard isDark={isDark} title={t('stat.tables', 'Active Tables')} value={`${s?.activeTables ?? 0} / ${s?.totalTables ?? 0}`} trend={null} isPositive={true} icon={LayoutGrid} color="rose" loading={loading} />
+        <StatCard isDark={isDark} title={t('stat.open', 'Open Orders')} value={(s?.openOrders ?? 0).toString()} trend={null} isPositive={true} icon={Receipt} color="fuchsia" loading={loading} />
+        <StatCard isDark={isDark} title={t('stat.customers', 'Customers')} value={(s?.customers ?? 0).toString()} trend={null} isPositive={true} icon={Users} color="cyan" loading={loading} />
         {config.advancedAnalytics && (
-          <StatCard isDark={isDark} title="Idle Tables"     value={(s?.idleTables     ?? 0).toString()} trend={null} isPositive={false} icon={AlertTriangle} color="amber" loading={loading} />
+          <StatCard isDark={isDark} title="Idle Tables" value={(s?.idleTables ?? 0).toString()} trend={null} isPositive={false} icon={AlertTriangle} color="amber" loading={loading} />
         )}
         {config.loyaltyEnable && (
           <StatCard isDark={isDark} title="Loyalty Members" value={(s?.loyaltyMembers ?? 0).toLocaleString()} trend={null} isPositive={true} icon={Award} color="indigo" loading={loading} />
