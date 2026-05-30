@@ -1,0 +1,5 @@
+{
+  "name": "POS Cloud Reporting & LHDN E-Invoice",
+  "description": "A cloud reporting dashboard for POS systems with LHDN e-invoice consolidation features.",
+  "requestFramePermissions": []
+}
