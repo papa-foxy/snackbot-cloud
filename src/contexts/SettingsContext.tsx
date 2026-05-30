@@ -2,7 +2,14 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '../lib/supabase';
 import { ToggleState } from '../components/Settings';
 
-const BUSINESS_ID = '00000000-0000-0000-0000-000000000001';
+// ── Get current merchant ID from localStorage ─────────────────────────────────
+function getMerchantId(): string {
+  try {
+    return JSON.parse(localStorage.getItem('snackbot_user') || '{}')?.merchant_id ?? '';
+  } catch {
+    return '';
+  }
+}
 
 export interface ThemeColors {
   bg: string;
@@ -133,10 +140,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // ── Fetch appearance from Supabase on mount ────────────────────────────────
   useEffect(() => {
     async function fetchAppearance() {
+      const merchantId = getMerchantId();
+      if (!merchantId) {
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('business')
         .select('theme, table_view_style, density, font_size, accent_color, animation_speed, sidebar_labels, high_contrast, language')
-        .eq('id', BUSINESS_ID)
+        .eq('id', merchantId)
         .single();
 
       if (!error && data) {
@@ -174,7 +187,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         root.style.setProperty('--sb-main',    '#FFFFFF');
         root.style.setProperty('--sb-card',    '#F8FAFC');
         root.style.setProperty('--sb-border',  '#E2E8F0');
-        root.style.setProperty('--text-main',  '#000000'); // ← black in light mode
+        root.style.setProperty('--text-main',  '#000000');
       }
 
       // High Contrast
@@ -188,10 +201,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
       // Animation speed
       root.classList.remove('motion-reduce', 'duration-75', 'duration-300', 'duration-700');
-      if (settings.animationSpeed === 'none')  root.classList.add('motion-reduce');
-      else if (settings.animationSpeed === 'fast') root.classList.add('duration-75');
-      else if (settings.animationSpeed === 'slow') root.classList.add('duration-700');
-      else root.classList.add('duration-300');
+      if (settings.animationSpeed === 'none')       root.classList.add('motion-reduce');
+      else if (settings.animationSpeed === 'fast')  root.classList.add('duration-75');
+      else if (settings.animationSpeed === 'slow')  root.classList.add('duration-700');
+      else                                          root.classList.add('duration-300');
 
       // Density
       root.setAttribute('data-density', settings.density);
@@ -226,15 +239,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     settings.fontSize,
     settings.toggles.highContrast,
     settings.theme,
-    settings, // include settings for localStorage
+    settings,
   ]);
 
   // ── Save a setting to Supabase ─────────────────────────────────────────────
   const persistSetting = useCallback(async (col: string, value: any) => {
+    const merchantId = getMerchantId();
+    if (!merchantId) return;
+
     const { error } = await supabase
       .from('business')
       .update({ [col]: value })
-      .eq('id', BUSINESS_ID);
+      .eq('id', merchantId);
     if (error) console.error('Failed to save setting:', col, error.message);
   }, []);
 
