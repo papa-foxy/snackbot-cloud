@@ -218,7 +218,7 @@ serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const smtpUser    = Deno.env.get("SMTP_USER");
     const smtpPass    = Deno.env.get("SMTP_PASS");
-    const appUrl      = Deno.env.get("APP_URL") ?? "http://localhost:3000";
+    const appUrl = Deno.env.get("APP_URL") ?? "https://snackbot-cloud.vercel.app";
 
     const missing = (
       [
