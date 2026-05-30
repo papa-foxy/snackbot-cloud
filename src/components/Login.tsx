@@ -134,7 +134,7 @@ export function Login({ onLogin }: LoginProps) {
       // Always send reset if auth_id exists — silently skip if not found (security best practice)
       if (staff?.auth_id) {
         const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: `${window.location.origin}/?reset=1`,
         });
         if (error) throw new Error(error.message);
       }
