@@ -843,6 +843,7 @@ export function MenuManagement() {
             day_of_week:  s.day_of_week,
             start_time:   s.start_time,
             end_time:     s.end_time,
+            merchant_id:  activeMerchantId,
           }))
         );
         if (error) throw error;
