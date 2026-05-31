@@ -1022,6 +1022,15 @@ export function MenuManagement() {
           delete dataToSave[f];
         }
       }
+
+      if (table==='addons') {
+        for (const f of ['price_max','price_min','price_type','price_unit',
+                        'addon_ids','category_id','category_name','is_featured',
+                        'prep_time_min','menu_categories','menu_item_ingredients',
+                        'ingredients','description','image_url','_previewUrl']) {
+          delete dataToSave[f];
+        }
+      }
       let savedId = editingItem?.id;
       if (editingItem) {
         const { error } = await supabase.from(table).update(dataToSave).eq('id', editingItem.id);
