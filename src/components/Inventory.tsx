@@ -823,9 +823,14 @@ Return a single JSON object:
       localStorage.setItem('inv_analysis_result', JSON.stringify(result.restock || []));
       localStorage.setItem('inv_missing_items', JSON.stringify(result.missing || []));
       localStorage.setItem('inv_show_analysis', 'true');
-    } catch (error) {
-      console.error('AI Analysis failed', error);
-      setAlert({ type: 'error', message: 'Failed to run AI stock analysis.' });
+    } catch (error: any) {
+      console.error('AI Analysis failed:', error);
+      const isQuota = error?.status === 429 || error?.statusCode === 429 ||
+        String(error).includes('429') || String(error).toLowerCase().includes('quota') || String(error).toLowerCase().includes('resourceexhausted');
+      setAlert({
+        type: 'error',
+        message: isQuota ? 'AI quota exceeded. Please try again later.' : 'Failed to run AI stock analysis.'
+      });
     } finally {
       setAnalyzing(false);
     }

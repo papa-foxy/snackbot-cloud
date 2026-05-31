@@ -1098,9 +1098,12 @@ export function MenuManagement() {
       });
       setSuggestions(JSON.parse(r.text||'[]')); setShowSuggestions(true);
       await writeAudit('ai_menu_item_suggestion_success', 'AI menu item suggestions generated successfully');
-    } catch {
-      await writeAudit('ai_menu_item_suggestion_failed', 'AI menu item suggestion failed');
-      setAlert({ type:'error', message:'AI suggestion failed.' });
+    } catch (err: any) {
+      console.error('AI menu item suggestion failed:', err);
+      const isQuota = err?.status === 429 || err?.statusCode === 429 ||
+        String(err).includes('429') || String(err).toLowerCase().includes('quota') || String(err).toLowerCase().includes('resourceexhausted');
+      await writeAudit(isQuota ? 'ai_menu_item_suggestion_quota_exceeded' : 'ai_menu_item_suggestion_failed', err?.message || String(err));
+      setAlert({ type:'error', message: isQuota ? 'AI quota exceeded. Please try again later.' : 'AI suggestion failed.' });
     }
     finally { setSuggesting(false); }
   };
@@ -1117,9 +1120,12 @@ export function MenuManagement() {
       });
       setAddonSuggestions(JSON.parse(r.text||'[]')); setShowAddonSuggestions(true);
       await writeAudit('ai_menu_addon_suggestion_success', 'AI add-on suggestions generated successfully');
-    } catch {
-      await writeAudit('ai_menu_addon_suggestion_failed', 'AI add-on suggestion failed');
-      setAlert({ type:'error', message:'AI suggestion failed.' });
+    } catch (err: any) {
+      console.error('AI add-on suggestion failed:', err);
+      const isQuota = err?.status === 429 || err?.statusCode === 429 ||
+        String(err).includes('429') || String(err).toLowerCase().includes('quota') || String(err).toLowerCase().includes('resourceexhausted');
+      await writeAudit(isQuota ? 'ai_menu_addon_suggestion_quota_exceeded' : 'ai_menu_addon_suggestion_failed', err?.message || String(err));
+      setAlert({ type:'error', message: isQuota ? 'AI quota exceeded. Please try again later.' : 'AI suggestion failed.' });
     }
     finally { setSuggestingAddons(false); }
   };
@@ -1141,9 +1147,12 @@ export function MenuManagement() {
         return inv ? { inventory_id:inv.id, name:inv.name, unit:inv.unit, quantity:x.quantity } : null;
       }).filter(Boolean));
       await writeAudit('ai_menu_ingredient_suggestion_success', `AI ingredient suggestions generated for "${formData.name}"`);
-    } catch {
-      await writeAudit('ai_menu_ingredient_suggestion_failed', `AI ingredient suggestion failed for "${formData.name}"`);
-      setAlert({ type:'error', message:'AI ingredient suggestion failed.' });
+    } catch (err: any) {
+      console.error('AI ingredient suggestion failed:', err);
+      const isQuota = err?.status === 429 || err?.statusCode === 429 ||
+        String(err).includes('429') || String(err).toLowerCase().includes('quota') || String(err).toLowerCase().includes('resourceexhausted');
+      await writeAudit(isQuota ? 'ai_menu_ingredient_suggestion_quota_exceeded' : 'ai_menu_ingredient_suggestion_failed', err?.message || String(err));
+      setAlert({ type:'error', message: isQuota ? 'AI quota exceeded. Please try again later.' : 'AI ingredient suggestion failed.' });
     }
     finally { setSuggestingIngredients(false); }
   };

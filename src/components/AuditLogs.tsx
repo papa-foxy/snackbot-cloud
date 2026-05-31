@@ -666,14 +666,17 @@ export function AuditLogs() {
           merchant_id: activeMerchantId,
         });
       }
-    } catch {
-      setAiAnalysis('Failed to analyze data. Please try again.');
+    } catch (err: any) {
+      console.error('AI audit analysis failed:', err);
+      const isQuota = err?.status === 429 || err?.statusCode === 429 ||
+        String(err).includes('429') || String(err).toLowerCase().includes('quota') || String(err).toLowerCase().includes('resourceexhausted');
+      setAiAnalysis(isQuota ? 'AI quota exceeded. Please try again later.' : 'Failed to analyze data. Please try again.');
       if (activeMerchantId) {
         await supabase.from('audit_logs').insert({
-          action: 'ai_audit_analysis_failed',
+          action: isQuota ? 'ai_audit_analysis_quota_exceeded' : 'ai_audit_analysis_failed',
           user_name: 'System',
           target_name: 'Audit Logs',
-          metadata: null,
+          metadata: { error: err?.message || String(err) },
           merchant_id: activeMerchantId,
         });
       }

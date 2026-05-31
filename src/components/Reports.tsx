@@ -1393,7 +1393,7 @@ Data: ${JSON.stringify(ctx)}`;
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
         const errMsg  = errBody?.error?.message || `HTTP ${res.status}`;
-        throw new Error(res.status === 429 ? 'AI quota exceeded. Try again later.' : errMsg);
+        throw new Error(res.status === 429 ? 'AI quota exceeded. Please try again later.' : errMsg);
       }
 
       const data = await res.json();
@@ -1403,7 +1403,10 @@ Data: ${JSON.stringify(ctx)}`;
       setAiInsight(text || 'No insight generated.');
 
     } catch (err: any) {
-      const msg = err?.message || 'Unknown error';
+      console.error('Failed to generate AI insights:', err);
+      const isQuota = err?.status === 429 || err?.statusCode === 429 ||
+        String(err).includes('429') || String(err).toLowerCase().includes('quota') || String(err).toLowerCase().includes('resourceexhausted');
+      const msg = isQuota ? 'AI quota exceeded. Please try again later.' : (err?.message || 'Unknown error');
       setAiError(true);
       setAiErrorMessage(msg);
       setAiInsight(msg);

@@ -900,8 +900,11 @@ Alerts: ${data.alerts.map((a: any) => a.message).join('; ') || 'None'}
 Write a concise 2-3 paragraph professional manager briefing. Be actionable.`;
       const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
       setAiSummary(response.text || 'Could not generate summary.');
-    } catch {
-      setAiSummary('Failed to generate AI summary. Please try again.');
+    } catch (err: any) {
+      console.error('Failed to generate AI summary:', err);
+      const isQuota = err?.status === 429 || err?.statusCode === 429 ||
+        String(err).includes('429') || String(err).toLowerCase().includes('quota') || String(err).toLowerCase().includes('resourceexhausted');
+      setAiSummary(isQuota ? 'AI quota exceeded. Please try again later.' : 'Failed to generate AI summary. Please try again.');
     } finally {
       setGenerating(false);
     }

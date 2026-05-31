@@ -248,12 +248,19 @@ export function AIAssistant({ onNavigate, onNavigatePage }: AIAssistantProps) {
       const rawText = response.text || 'Sorry, I could not get a response. Please try again.';
       const { cleanText, suggestions } = parseAIResponse(rawText);
       setMessages(prev => [...prev, { role: 'assistant', text: cleanText, suggestions }]);
-    } catch (err) {
-      console.error(err);
-      await writeAiAudit('ai_assistant_prompt_failed', { prompt: userMsg.text.slice(0, 300) });
+    } catch (err: any) {
+      console.error('AI Assistant prompt failed:', err);
+      const isQuota = err?.status === 429 || err?.statusCode === 429 ||
+        String(err).includes('429') || String(err).toLowerCase().includes('quota') || String(err).toLowerCase().includes('resourceexhausted');
+      await writeAiAudit(isQuota ? 'ai_assistant_quota_exceeded' : 'ai_assistant_prompt_failed', {
+        prompt: userMsg.text.slice(0, 300),
+        error: err?.message || String(err)
+      });
       setMessages(prev => [...prev, {
         role: 'assistant',
-        text: 'Something went wrong. Please check your connection and try again.',
+        text: isQuota
+          ? 'AI quota exceeded. Please try again later.'
+          : 'Something went wrong. Please check your connection and try again.',
       }]);
     } finally {
       setLoading(false);
