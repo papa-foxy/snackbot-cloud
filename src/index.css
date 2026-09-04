@@ -8,4 +8,100 @@
   --color-primary-dark: var(--color-primary-dark);
   --color-primary-text: var(--color-primary-text);
   --color-primary-border: var(--color-primary-border);
+
+  /* Login carousel fade-in animation */
+  --animate-fadeIn: fadeIn 0.45s ease both;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* ── Login page background animations ─────────────────────────────────────── */
+
+/* Slow ambient gradient shift on the canvas itself */
+@keyframes ambientShift {
+  0%   { background-position: 0% 50%;   }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%;   }
+}
+
+/* Large glowing orbs that slowly drift/pulse (candlelight effect) */
+@keyframes orbDrift1 {
+  0%   { transform: translate(0, 0)    scale(1);    opacity: 0.55; }
+  33%  { transform: translate(40px, -60px) scale(1.12); opacity: 0.7;  }
+  66%  { transform: translate(-30px, 40px) scale(0.95); opacity: 0.5;  }
+  100% { transform: translate(0, 0)    scale(1);    opacity: 0.55; }
+}
+@keyframes orbDrift2 {
+  0%   { transform: translate(0, 0)    scale(1);    opacity: 0.45; }
+  40%  { transform: translate(-50px, 35px)  scale(1.08); opacity: 0.6;  }
+  80%  { transform: translate(35px, -45px)  scale(0.92); opacity: 0.4;  }
+  100% { transform: translate(0, 0)    scale(1);    opacity: 0.45; }
+}
+@keyframes orbDrift3 {
+  0%   { transform: translate(0, 0)    scale(1);    opacity: 0.35; }
+  50%  { transform: translate(60px, 50px)   scale(1.15); opacity: 0.55; }
+  100% { transform: translate(0, 0)    scale(1);    opacity: 0.35; }
+}
+
+/* Floating food-icon particles drifting upward */
+@keyframes floatUp1 {
+  0%   { transform: translateY(0)    rotate(0deg)   opacity: 0;   }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.3; }
+  100% { transform: translateY(-120vh) rotate(25deg)  opacity: 0; }
+}
+@keyframes floatUp2 {
+  0%   { transform: translateY(0)    rotate(0deg)   opacity: 0;   }
+  10%  { opacity: 0.5; }
+  90%  { opacity: 0.2; }
+  100% { transform: translateY(-120vh) rotate(-20deg) opacity: 0; }
+}
+@keyframes floatUp3 {
+  0%   { transform: translateY(0)    rotate(0deg)   opacity: 0;   }
+  15%  { opacity: 0.7; }
+  85%  { opacity: 0.25; }
+  100% { transform: translateY(-120vh) rotate(15deg)  opacity: 0; }
+}
+
+/* Thin steam wisps rising */
+@keyframes steamRise {
+  0%   { transform: translateY(0)   scaleX(1)    opacity: 0;   }
+  20%  { opacity: 0.4; }
+  60%  { transform: translateY(-80px) scaleX(1.4) opacity: 0.3; }
+  100% { transform: translateY(-160px) scaleX(0.6) opacity: 0; }
+}
+
+/* Subtle grain texture pulse */
+@keyframes grainPulse {
+  0%, 100% { opacity: 0.035; }
+  50%       { opacity: 0.06;  }
+}
+
+/* Spotlight beam sweep */
+@keyframes beamSweep {
+  0%   { transform: rotate(-8deg)  opacity: 0.06; }
+  50%  { transform: rotate(8deg)   opacity: 0.12; }
+  100% { transform: rotate(-8deg)  opacity: 0.06; }
+}
+
+/* CSS utility classes used by the Login background */
+.login-bg {
+  animation: ambientShift 18s ease infinite;
+  background-size: 300% 300%;
+}
+.orb-1  { animation: orbDrift1 14s ease-in-out infinite; }
+.orb-2  { animation: orbDrift2 18s ease-in-out infinite; }
+.orb-3  { animation: orbDrift3 22s ease-in-out infinite; }
+.particle-1 { animation: floatUp1 12s linear infinite; }
+.particle-2 { animation: floatUp2 16s linear 3s infinite; }
+.particle-3 { animation: floatUp3 20s linear 7s infinite; }
+.particle-4 { animation: floatUp1 14s linear 5s infinite; }
+.particle-5 { animation: floatUp2 18s linear 1s infinite; }
+.steam-1 { animation: steamRise 5s ease-in infinite; }
+.steam-2 { animation: steamRise 7s ease-in 2s infinite; }
+.steam-3 { animation: steamRise 6s ease-in 4s infinite; }
+.grain   { animation: grainPulse 4s ease-in-out infinite; }
+.beam    { animation: beamSweep 12s ease-in-out infinite; transform-origin: top center; }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { ToggleState } from '../components/Settings';
+import { ToggleState } from '../features/settings';
 
 // ── Get current merchant ID from localStorage ─────────────────────────────────
 function getMerchantId(): string {

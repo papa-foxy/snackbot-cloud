@@ -1,0 +1,30 @@
+name: Supabase Keepalive Heartbeat
+
+on:
+  schedule:
+    # Runs at 04:00 UTC every 5 days (well within Supabase's 7-day inactivity pause window)
+    - cron: '0 4 */5 * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions UI anytime
+
+jobs:
+  ping:
+    name: Write Heartbeat to Supabase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Supabase Keepalive Script
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://paqijpdgwttioiizlfzv.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_lArZgj0m8XmlPUNXR7UK-A_rDQ1ldrZ' }}
+        run: node scripts/keepalive.js

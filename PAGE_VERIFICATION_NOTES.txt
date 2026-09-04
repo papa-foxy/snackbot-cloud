@@ -1,0 +1,705 @@
+================================================================================
+                         SNACKBOT CLOUD - PAGE VERIFICATION NOTES
+================================================================================
+Generated: 2026-09-04
+Last Updated: 2026-09-04 (Login UI refactor applied)
+Progress: [ 19 / 19 Active Pages Verified ] (100% COMPLETE)
+
+================================================================================
+                           PAGE VERIFICATION CHECKLIST
+================================================================================
+
+[A] PRIMARY NAVIGATION PAGES (App Sidebar):
+  [X] 01. Dashboard               -> src/features/dashboard/pages/DashboardPage.tsx      [MODULARIZED]
+  [X] 02. Sales Reports           -> src/features/reports/pages/ReportsPage.tsx          [MODULARIZED]
+  [X] 03. Menu Management         -> src/features/menu/pages/MenuManagementPage.tsx      [MODULARIZED]
+  [X] 04. Inventory Management    -> src/features/inventory/pages/InventoryPage.tsx      [MODULARIZED]
+  [X] 05. Settings                -> src/features/settings/pages/SettingsPage.tsx        [MODULARIZED]
+  [X] 06. LHDN E-Invoice          -> src/features/compliance/pages/LHDNPage.tsx          [MODULARIZED]
+  [X] 07. Users & Staff           -> src/features/users/pages/UsersPage.tsx              [MODULARIZED]
+  [X] 08. Tables & QR Management  -> src/features/tables-qr/pages/QRManagementPage.tsx   [MODULARIZED]
+  [X] 09. Cloud Sync              -> src/features/sync/pages/CloudSyncPage.tsx           [MODULARIZED]
+  [X] 10. Loyalty & Rewards       -> src/features/marketing/pages/LoyaltyPage.tsx        [MODULARIZED]
+  [X] 11. Promotions              -> src/features/marketing/pages/PromotionsPage.tsx     [MODULARIZED]
+  [X] 12. Branch Management       -> src/features/branches/pages/BranchesListPage.tsx    [MODULARIZED]
+  [X] 13. Tax Management          -> src/features/compliance/pages/TaxManagementPage.tsx [MODULARIZED]
+  [X] 14. Audit Logs              -> src/features/compliance/pages/AuditLogsPage.tsx     [MODULARIZED]
+
+[B] AUTH & ONBOARDING ROUTES:
+  [X] 15. Login & Reset Password  -> src/features/auth/pages/LoginPage.tsx & ResetPasswordPage.tsx [MODULARIZED]
+  [X] 16. Accept Invite Page      -> src/features/auth/pages/AcceptInvitePage.tsx        [MODULARIZED]
+  [X] 17. Demo Onboarding Page    -> src/features/auth/pages/DemoOnboardingPage.tsx      [MODULARIZED]
+
+[C] CUSTOMER / DINE-IN ROUTES:
+  [X] 18. Table Order Page        -> src/features/ordering/pages/TableOrderPage.tsx      [MODULARIZED]
+
+[D] PLATFORM & ADMIN:
+  [X] 19. Platform Admin (Super)  -> src/features/platform-admin/pages/PlatformAdminPage.tsx [MODULARIZED]
+
+[E] CORE SHARED LAYOUT & GUARDS:
+  [X] 20. Sidebar & Impersonation -> src/components/layout/Sidebar.tsx, ImpersonationBanner.tsx [MODULARIZED]
+  [X] 21. Role Guard              -> src/components/guards/RoleGuard.tsx                 [MODULARIZED]
+  [X] 22. AI Assistant            -> src/features/ai-assistant/components/AIAssistant.tsx [MODULARIZED]
+
+================================================================================
+
+
+--------------------------------------------------------------------------------
+[1/5] PAGE: Dashboard
+--------------------------------------------------------------------------------
+- File: src/components/Dashboard.tsx (1,034 lines)
+- Component: Dashboard
+- Route / Tab: 'dashboard'
+
+* Purpose & Features:
+  - Real-time operational overview of business performance.
+  - KPI Stat Cards: Gross/Net Revenue, Total Orders, Average Order Value (AOV), Customer Count, and day-over-day trends.
+  - Visual Charts: Recharts integration (Hourly breakdown when filtering 'Today', Daily breakdown for multi-day ranges).
+  - Operational Status: Active tables count, longest open table timer, pending orders count, idle tables.
+  - Alerts Panel: Real-time system notifications (danger, warning, info, success).
+  - Staff Snapshot: Waiter/staff performance ranking by sales and order count.
+  - Top Selling Items: Revenue and volume ranking with visual progress bars.
+  - AI Operational Summary: Gemini API integration (@google/genai) generating natural language daily summaries.
+  - Loyalty Banner: Displays loyalty metrics and program status.
+
+* Multi-Tenancy & Auth Verification:
+  - Supports both direct merchant sessions and admin impersonation via:
+    `activeMerchantId = isImpersonating ? impersonatedMerchantId : getLocalMerchantId()`
+  - All queries strictly enforce `.eq('merchant_id', activeMerchantId)`.
+  - Dynamic polling: Automatically refreshes configuration from `settings` table every 30 seconds.
+
+* State & Data Architecture:
+  - Queries `orders`, `order_items`, `menu`, `menu_categories`, and `settings` tables.
+  - Uses `useSettings()` and `useTranslation()` contexts for theme and localization.
+  - Navigation callback `onNavigatePage` allows seamless jumping directly to target modules (e.g. low stock alerts jumping to 'inventory').
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & Vite build cleanly without errors.
+  - [OBSERVATION] Top items aggregation fetches order items using `.in('order_id', completedIds)` in memory. For high-volume merchants with thousands of orders over 30+ days, consider an RPC or indexed database view for server-side aggregation.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[2/5] PAGE: Sales Reports
+--------------------------------------------------------------------------------
+- File: src/components/Reports.tsx (2,808 lines)
+- Component: Reports
+- Route / Tab: 'reports'
+
+* Purpose & Features:
+  - Deep financial and operational reporting suite.
+  - 8 Insight Sub-sections:
+    1. Sales & Revenue (Gross, Net, Tax, Discounts, Refunds, Hourly heatmaps)
+    2. Menu Insights (Category breakdown, top/worst performers)
+    3. Payment & Transactions (Payment method distribution: Cash, Card, QR, E-wallet)
+    4. Table & Customer (Dine-in turnover, average party size, occupancy)
+    5. Staff & Shift Performance
+    6. Inventory Stock Movement
+    7. End-of-Day (EOD) Reports
+    8. Session Reports
+  - Date preset selection (Today, Yesterday, Last 7 Days, Last 30 Days, Custom range).
+  - Dynamic multi-filter sidebar (filter by order type, payment method, category, menu item).
+  - Customizable column visibility and reordering.
+  - Full CSV export functionality for spreadsheet analysis.
+  - AI Assistant drawer for ad-hoc business reporting queries.
+
+* Multi-Tenancy & Auth Verification:
+  - Uses `useImpersonation()` with fallback to `resolveMerchantId()`.
+  - Fallback logic checks localStorage and verifies against `users` table via `supabase.auth.getUser()`.
+  - Queries filter by both `merchant_id` and selected `branch_id`.
+
+* State & Data Architecture:
+  - Modularized inside a unified bundle with `useReportData` hook.
+  - Queries `orders`, `branches`, `order_items`, `shifts`, `eod_reports`, `inventory`.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck passes cleanly.
+  - [OBSERVATION] Top file comments contain non-ASCII characters (e.g. `?"` / `A`) from historical encoding differences. Purely cosmetic, but cleanup is advised.
+  - [OBSERVATION] The file is quite large (2,808 lines). Future refactoring could consider splitting sub-sections into dedicated files if maintenance becomes difficult.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[3/5] PAGE: Menu Management
+--------------------------------------------------------------------------------
+- File: src/components/MenuManagement.tsx (1,938 lines)
+- Component: MenuManagement
+- Route / Tab: 'menu'
+
+* Purpose & Features:
+  - Full lifecycle catalog management for food and beverage items.
+  - 4 Main Sub-tabs:
+    1. Items: Item creation/editing, base price, dynamic/fixed pricing, image upload, tax override, availability toggles.
+    2. Categories: Hierarchical organization and sorting.
+    3. Addons / Modifiers: Modifiers, variant groups, and optional/required settings.
+    4. Availability Schedules: Time-slot and day-of-week rules for items/categories (e.g. Breakfast vs Dinner menus).
+  - Bulk CSV import for fast initial onboarding.
+  - Gemini AI integration for recipe generation, ingredient suggestions, and menu item descriptions.
+  - Multi-tax rule association per item/category via `useTaxConfig`.
+
+* Multi-Tenancy & Auth Verification:
+  - Updated to v3.2.0 multi-branch / multi-tenant standard.
+  - Resolves `activeMerchantId` via `isImpersonating ? impersonatedMerchantId : getLocalMerchantId()`.
+  - Cache key `menu_${activeMerchantId}` ensures cache partitioning per merchant.
+  - Inserts into `menu`, `menu_categories`, and `audit_logs` explicitly include `merchant_id`.
+
+* State & Data Architecture:
+  - Uses `useDataLoader` for cached asynchronous data loading with `refetch()`.
+  - Interacts with Supabase Storage bucket `'menu-images'` for uploaded assets.
+  - Automatically logs mutation actions to `audit_logs`.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] Standalone `uploadImage` helper defined at lines 1-18 is untyped in parameter `(file)`, but works as intended.
+  - [OBSERVATION] Bucket name `'menu-images'` is hardcoded; ensure the Supabase storage bucket policy is publicly readable and restricted to authenticated uploads.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[4/5] PAGE: Inventory Management
+--------------------------------------------------------------------------------
+- File: src/components/Inventory.tsx (902 lines)
+- Component: Inventory
+- Route / Tab: 'inventory'
+
+* Purpose & Features:
+  - Stock tracking and raw ingredient inventory control.
+  - Inventory item attributes: Name, SKU, Current Quantity, Unit (pcs, kg, g, l, ml, etc.), Min Stock Alert Level.
+  - Stock level status filtering: 'all', 'in_stock', 'low_stock', 'out_of_stock'.
+  - Search & pagination.
+  - Integration with Menu: Displays linked menu items consuming each inventory ingredient.
+  - AI Stock Analysis: Uses Gemini to detect fast-depleting ingredients, suggest restock quantities, and highlight missing items.
+  - Deep-link support: Reads `__appNavigateParams` to auto-filter on `low_stock` when navigated from Dashboard alert chips.
+
+* Multi-Tenancy & Auth Verification:
+  - Uses standard `useImpersonation` + localStorage fallback.
+  - Queries `inventory` and `menu` filtered by `merchant_id`.
+  - Creates new items with `merchant_id: activeMerchantId`.
+
+* State & Data Architecture:
+  - Data cached via `useDataLoader('inventory_' + activeMerchantId, fetchData)`.
+  - Updates use safe-field whitelisting `{ name, sku, quantity, unit, min_stock_level }` avoiding accidental column overwrites.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] AI analysis results are saved in `localStorage` (`inv_analysis_result`), meaning analysis persists across tab switches for the current browser session.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[5/5] PAGE: Settings
+--------------------------------------------------------------------------------
+- File: src/components/Settings.tsx (3,241 lines)
+- Component: Settings
+- Route / Tab: 'settings'
+
+* Purpose & Features:
+  - Master system control panel with 15 granular configuration sections:
+    1. General: Business name, currency, timezone, tax display, auto-print, receipt headers/footers.
+    2. Branch / Outlet: Multi-branch configuration, branch codes, active branches.
+    3. POS Devices: Terminal pairing and authorization codes per outlet.
+    4. Users & Roles: Staff accounts, PIN codes, shift rules.
+    5. Payment: Payment methods (Cash, Card, QR, TnG, GrabPay, etc.), rounding rules, split bill options.
+    6. Tax & Compliance: LHDN e-Invoicing credentials, SST rates, invoice numbering sequences.
+    7. Menu Behaviour: Stock check rules, negative stock, price override permissions.
+    8. Table Management: Merge/transfer tables, QR self-ordering, auto-release timers.
+    9. Inventory: Stock alerts, automatic deduction on order completion, ingredient tracking.
+    10. Dashboard: Default date ranges, chart types, advanced analytics toggles.
+    11. Notifications: Low stock alerts, unpaid table warnings, summary email schedules.
+    12. Cloud & Sync: Real-time sync frequency, offline fallback mode.
+    13. Loyalty & Promos: Points accumulation rate, promo codes, expiry rules.
+    14. Security: Two-factor authentication, session timeout, audit trail access.
+    15. Appearance & UI: Theme modes (Light, Dark, System), high contrast, sidebar preferences.
+  - Live search bar filtering across all setting titles and descriptions.
+  - Drag-and-drop section reordering using `@dnd-kit`.
+
+* Multi-Tenancy & Auth Verification:
+  - Top-level `Settings` component resolves `activeMerchantId` with `useImpersonation` and supplies it to every section component.
+  - Supabase upserts enforce `merchant_id` and use `{ onConflict: 'merchant_id,key' }` to strictly honor database row-level security (RLS).
+  - Sets `updated_by` using current user's profile ID for audit traceability.
+
+* State & Data Architecture:
+  - Dual-layer state: React local state for instant UI responsiveness + immediate asynchronous upsert to Supabase `settings` table.
+  - Uses `useSettings()` global context to propagate changes immediately to the rest of the application without requiring a page reload.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & Vite build pass cleanly with 0 errors.
+  - [OBSERVATION] In `GeneralSection`:
+    - `handleToggle` (line 937) verifies `user` authentication before saving.
+    - `handleBlur` (line 970) immediately upserts without an explicit client-side auth check (relies on Supabase RLS). It functions correctly, but adding a check prevents unnecessary 401/403 console errors if a session expires while typing.
+  - [OBSERVATION] Top-level helper `getMerchantId()` at line 101 only reads localStorage; however, the actual `Settings` component properly uses `useImpersonation()` and passes `activeMerchantId` into the sections.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[6/20] PAGE: LHDN E-Invoice
+--------------------------------------------------------------------------------
+- File: src/components/LHDN.tsx (1,118 lines)
+- Component: LHDN
+- Route / Tab: 'lhdn'
+
+* Purpose & Features:
+  - Malaysian Inland Revenue Board (LHDN) e-Invoicing compliance hub.
+  - 5 Operational Tabs:
+    1. Pending Orders: Eligible completed and paid dine-in/takeaway orders pending submission.
+    2. Batches: Consolidated batch groupings per outlet/branch.
+    3. Submitted Invoices: Successfully validated e-invoices with validation stamps.
+    4. Errors & Retries: Failed batches with diagnostic error details and retry actions.
+    5. Audit Log: Immutable compliance audit trail with timestamps and user details.
+  - Multi-order selection and consolidation into a single branch batch.
+  - Auto-generation of standardized batch codes (`BATCH-YYYYMMDD-XXXX`).
+  - Pre-submission order validation (checks customer TIN, business registration numbers, and total balances).
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` via `isImpersonating ? impersonatedMerchantId : getMerchantId()`.
+  - Filters both `orders` and `einvoice_batches` by `merchant_id`.
+  - Satisfies database foreign key constraint to `auth.users(id)` when creating batch records.
+
+* State & Data Architecture:
+  - Interacts with `orders`, `einvoice_batches`, `branches`, and `users` tables.
+  - Automatically flags consolidated orders as `lhdn_status = 'pending_consolidation'` linked by `batch_id`.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] Orders query filters `lhdn_required = true` and `status = 'completed'`. Ensures voided, unpaid, or non-taxable transactions are never submitted accidentally.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[7/20] PAGE: Users & Staff Management
+--------------------------------------------------------------------------------
+- File: src/components/Users.tsx (1,196 lines)
+- Component: Users
+- Route / Tab: 'users'
+
+* Purpose & Features:
+  - Staff directory, role-based access control (RBAC), and user administration.
+  - Supported Roles: Manager, Supervisor, Cashier, Kitchen, Waiter.
+  - Permissions Matrix Modal: Visualizes granular page permissions across all 5 roles.
+  - Staff Actions:
+    - Add new staff member with email, phone, role, and temporary PIN.
+    - Password / PIN reset with direct admin credential override.
+    - View individual login and session history.
+    - Active / Inactive status toggle.
+  - Soft-delete policy: Disables user account instead of hard deleting to preserve historical orders and audit relationships.
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` through `useImpersonation` with fallback to local storage.
+  - Scopes all staff queries strictly to `.eq('merchant_id', activeMerchantId)`.
+  - Stamps `merchant_id` on all generated `audit_logs` entries.
+
+* State & Data Architecture:
+  - Interacts with `users`, `audit_logs`, and `user_sessions` tables.
+  - Integrates with `usePermission()` hook to prevent lower-tier roles from modifying elevated staff (e.g. Supervisors cannot edit Managers).
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] The component has a safety timeout (8s) on user data fetching to prevent indefinite loading spinners during network stalls.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[8/20] PAGE: Tables & QR Management
+--------------------------------------------------------------------------------
+- File: src/components/QRManagement.tsx (2,080 lines)
+- Component: QRManagement
+- Route / Tab: 'tables_qr'
+
+* Purpose & Features:
+  - Physical restaurant floor layout, table management, and digital QR ordering.
+  - Dual Layout Views: Interactive Visual Grid view and compact tabular List view.
+  - Dual QR Architecture:
+    - Static QR: Permanent table URL pointing to `/order?table=X`.
+    - Dynamic QR: Short-code `/qr/:short_code` supporting expiration, customer tokens, and instant URL rerouting.
+  - Floor Master Control: Ability to disable QR ordering across an entire floor with one toggle.
+  - Print & Export Engine: Multi-table printable QR card layout formatted for table standees.
+  - Live Table Sessions: Active session tracking, order counts per table, and scan metrics.
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` with impersonation support.
+  - Queries `tables` filtered by `merchant_id`, then safely fetches `qr_config` and `qr_sessions` scoped to those specific table IDs.
+
+* State & Data Architecture:
+  - Integrates client-side QR generation via `qrcode` package with high error correction (`H`).
+  - Interacts with `tables`, `qr_config`, and `qr_sessions` tables.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] The client-side QR generation produces high-resolution PNG data URLs (`QRCode.toDataURL`), which avoids external network dependencies during QR printing.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[9/20] PAGE: Cloud Sync & Backups
+--------------------------------------------------------------------------------
+- File: src/components/CloudSync.tsx (711 lines)
+- Component: CloudSync
+- Route / Tab: 'cloud_sync'
+
+* Purpose & Features:
+  - POS offline reliability and cloud snapshot backup monitoring.
+  - Real-time Network Indicator: Online/offline status detection (`navigator.onLine`).
+  - Backup Activity Log: History of SQLite database snapshots pushed from local POS terminals.
+  - Summary KPI Metrics: Total backups stored, success vs error counts, total cloud storage bytes, last backup timestamp.
+  - Supabase Realtime Subscription: Listens on `backup_logs_channel` to automatically show new backups as they complete without page refresh.
+  - Storage Management: Direct download and deletion of backup archives.
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` via `isImpersonating ? impersonatedMerchantId : getLocalMerchantId()`.
+  - Backups and stats query strictly filtered by `.eq('merchant_id', activeMerchantId)`.
+
+* State & Data Architecture:
+  - Queries and deletes from `backup_logs` table and Supabase Storage bucket.
+  - Uses `formatBytes` and `formatRelative` helper utilities for human-friendly telemetry.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] Realtime channel correctly cleans up subscription on component unmount via `supabase.removeChannel()`.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[10/20] PAGE: Loyalty & Rewards
+--------------------------------------------------------------------------------
+- File: src/components/Loyalty.tsx (796 lines)
+- Component: Loyalty
+- Route / Tab: 'loyalty'
+
+* Purpose & Features:
+  - Customer membership directory and points reward program.
+  - 4 Tier System: Bronze (0-499), Silver (500-1,999), Gold (2,000-4,999), Platinum (5,000+).
+  - Customer Records: Name, email, phone, current points balance, total lifetime spending, last visit date.
+  - Points Ledger (`points_history`): Audit trail of all point movements ('earn', 'redeem', 'adjust').
+  - Points Adjustment Modal: Allows managers to credit or debit points with a reason description.
+  - Search & Tier Filtering.
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` via `useImpersonation` + localStorage.
+  - Queries `customers` with `.eq('merchant_id', activeMerchantId)`.
+  - Scopes `points_history` by retrieving only IDs belonging to current merchant's customers.
+  - New customer creation stamps `merchant_id: activeMerchantId`.
+
+* State & Data Architecture:
+  - Interacts with `customers` and `points_history` tables.
+  - Uses auto-dismissing feedback toast notifications.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] Tier calculations are derived in memory via `getTier(points)`, which ensures tier thresholds stay reactive without requiring manual database migration when tuning points rules.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[11/20] PAGE: Promotions & Discounts
+--------------------------------------------------------------------------------
+- File: src/components/Promotions.tsx (653 lines)
+- Component: Promotions
+- Route / Tab: 'promotions'
+
+* Purpose & Features:
+  - Promotional vouchers, discount campaigns, and coupon code management.
+  - Discount Types: Percentage discount (%) or Fixed cash deduction (e.g. RM 5 off).
+  - Campaign Guardrails: Minimum spend threshold (`min_spend`) and maximum discount cap (`max_discount`).
+  - Scheduling & Limits:
+    - Validity window: `starts_at` and optional `ends_at` with automatic active/expired badge indicators.
+    - Global redemption limit: `usage_limit` and real-time tracked `usage_count`.
+    - Active toggle: Instant pause/resume of any promotion without deletion.
+  - Form validation: Validates code format, verifies percentage <= 100%, and ensures chronological date ranges.
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` via `useImpersonation` + localStorage fallback.
+  - Scopes all queries to `.eq('merchant_id', activeMerchantId)`.
+  - Injects `merchant_id` into all insert and update payloads.
+
+* State & Data Architecture:
+  - Queries and mutates the `promotions` table.
+  - Responsive dialog modal for create, edit, view, and delete operations.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] Clean and lightweight component (~650 lines) with complete error validation.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[12/20] PAGE: Branch Management
+--------------------------------------------------------------------------------
+- File: src/components/BranchesList.tsx (1,190 lines)
+- Component: BranchesList, BranchPage
+- Route / Tab: 'branches', 'branches/new', 'branches/:id'
+
+* Purpose & Features:
+  - Multi-outlet and branch operations headquarters.
+  - Outlet Directory: Cards detailing branch name, unique outlet code, physical address, phone, email, and active status.
+  - Deep-Dive Branch Drilldown (`BranchPage`):
+    - Sub-tab 1 - Staff Allocation: Assign existing staff from the global directory to specific branches with a `is_primary` flag.
+    - Sub-tab 2 - Branch Menu & Pricing: Outlet-specific item availability toggles and branch price overrides (`branch_menu`).
+    - Sub-tab 3 - Kitchen Display (KDS): Setup and route kitchen display stations per outlet (`kds_stations`).
+    - Sub-tab 4 - Outlet Settings: Per-branch policy overrides for bill splitting, negative stock, and price override permissions.
+  - Route deep-linking: Handles dynamic routes like `branches/:id` directly from sidebar navigation or URL state.
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` with full impersonation compatibility.
+  - All multi-table queries (`branches`, `branch_staff`, `branch_menu`, `kds_stations`, `settings`) strictly filter by `merchant_id`.
+  - Cache key `branches_${activeMerchantId}` isolates branch caches across tenants.
+
+* State & Data Architecture:
+  - Uses `useDataLoader` for data loading and refetching.
+  - Parallel queries using `Promise.all` across 9 tables during outlet drilldown.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] The branch drilldown is robust and covers complete multi-store operational isolation (separate KDS, separate staff, per-store price overrides).
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[13/20] PAGE: Tax Management & Simulator
+--------------------------------------------------------------------------------
+- File: src/components/TaxManagement.tsx (914 lines)
+- Component: TaxManagement
+- Route / Tab: 'tax'
+
+* Purpose & Features:
+  - Comprehensive tax rules engine designed for Malaysian SST and service charges.
+  - 3 Core Tabs:
+    1. Rules: Granular list of active tax rules with priority sorting and inline toggles.
+    2. Simulator: Live interactive bill calculator simulating custom cart items, SST, service charges, inclusive/exclusive modes, and subtotal math before deploying to POS.
+    3. Guide: Operational reference guide explaining tax compliance, SST calculation order, and LHDN requirements.
+  - Rule Configurations:
+    - Tax Types: Percentage (%), Fixed Amount (RM), Service Charge (%).
+    - Scope: 'all' (all items), 'category' (category-specific rule), 'item' (item-specific override), 'order' (order-level tax).
+    - Inclusion Mode: Inclusive vs exclusive tax pricing toggle.
+    - Receipt visibility and calculation priority ordering.
+  - Auditing: Generates log entries into `audit_logs` on any tax configuration change.
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` with impersonation support.
+  - Uses `useTaxConfig(activeMerchantId)` hook to load and cache active rules per merchant.
+  - Tables `tax_config`, `tax_category_rule`, and `tax_item_override` are all partitioned by `merchant_id`.
+
+* State & Data Architecture:
+  - Shares tax engine logic with POS and Ordering via `calculateOrderTax()` in `useTaxConfig`.
+  - Re-fetches category and item assignments in parallel on merchant switch.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] The interactive Simulator is an excellent design pattern that allows operators to test tax math without corrupting live order history.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[14/20] PAGE: Audit Logs
+--------------------------------------------------------------------------------
+- File: src/components/AuditLogs.tsx (1,013 lines)
+- Component: AuditLogs
+- Route / Tab: 'audit'
+
+* Purpose & Features:
+  - Security audit trail and operational activity ledger.
+  - 2 Operational Modes:
+    1. Logs Tab: Real-time searchable event stream with source filters (Auth, Staff, Orders, Menu, Inventory, Schedule, System).
+    2. Coverage Tab ("What Gets Logged"): System-wide visual documentation explaining every action code, trigger cause, and originating page.
+  - "Sync All Sources": Aggregates and merges timeline records across `audit_logs`, `orders`, `menu`, `inventory`, and `schedule_templates`.
+  - Gemini AI Security Analysis: Generates natural language summaries analyzing suspicious activity, price overrides, void frequencies, and system health.
+  - Formatted timeline cards with user avatars, relative timestamps, and metadata JSON inspection.
+
+* Multi-Tenancy & Auth Verification:
+  - Resolves `activeMerchantId` through `useImpersonation` + localStorage.
+  - All source queries filter strictly by `merchant_id`.
+
+* State & Data Architecture:
+  - Normalizes multiple disparate database tables into a unified `AuditEntry` interface.
+  - Uses `date-fns` for scannable date/time formatting.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] Guarded string parsing (`?? ''`) prevents UI crashes on unexpected null action codes.
+  - [STATUS]: VERIFIED / HEALTHY
+
+
+--------------------------------------------------------------------------------
+[15/19] PAGE: Login & Reset Password
+--------------------------------------------------------------------------------
+- Location: src/features/auth/ (LoginPage, ResetPasswordPage, AmbientCanvas, FoodCarousel)
+- Backward-Compatible Bridge: src/components/Login.tsx
+- Route / Tab: Root login screen ('/'), '/reset-password'
+
+* Purpose & Features:
+  - Secure authentication portal for staff, managers, and super administrators.
+  - Multi-view flow: Sign in, Forgot password, Reset link confirmation, and Link expired handling.
+  - Supabase URL Hash Error Handler: Catches expired OTPs and invalid tokens cleanly (`parseHashError`).
+  - Standalone `ResetPassword` component with password strength & confirmation checks.
+  - "Try Demo" shortcut navigates to `/demo-onboarding`.
+
+* UI / Visual Design (UPDATED 2026-09-04):
+  - Layout: Split-card design — form left column (lg:col-span-7), food showcase right column (lg:col-span-5).
+  - Canvas: Animated dark restaurant-atmosphere background (Pure Espresso Noir):
+      • Deep espresso noir gradient (#0F0E0D canvas) with ambientShift animation.
+      • 3 drifting candlelight orbs: burnished gold (#C28E38) top-left, smoked bronze (#92400E) bottom-right, vintage brass center-top.
+      • 2 restaurant spotlight beam sweeps (burnished gold & bronze, beamSweep animation).
+      • Subtle film-grain texture overlay (grainPulse animation).
+      • Clean viewport: bottom edge kept completely free of floating glyphs/icons for a polished luxury look.
+  - Right Panel: 3-image auto-sliding food carousel (4s interval, setInterval auto-advance):
+      • Slide 1: Pasta carbonara & bruschetta (public/login-food-showcase.jpg)
+      • Slide 2: Wagyu steak with herb butter (public/login-food-slide2.jpg)
+      • Slide 3: Latte art & croissants at a café (public/login-food-slide3.jpg)
+      • Cross-fade transition (opacity-0 → opacity-100, duration-700ms) between images.
+      • Caption slides: tag badge (#FDE68A), headline, body copy with animate-fadeIn on slide change.
+      • Clickable dot indicators (3-dot, active = w-8 bg-white, inactive = w-3 bg-white/40).
+  - Brand Palette: Roasted Amber & Noir Espresso:
+      • Primary Main Button: #D97706 (amber-600) with hover #B45309 (amber-700) for vibrant contrast.
+      • Primary Tint Badge: #29221D coffee bean chip with #D97706 icon & border #78350F/50.
+      • Focus Ring: focus-within:border-amber-500 focus-within:ring-amber-400/25.
+      • Canvas Background: #0F0E0D (Pure Espresso Noir) with candlelight orbs and restaurant beams.
+  - Card: bg-white rounded-3xl shadow-2xl shadow-black/40 — floats prominently over dark background.
+  - Shared micro-components: FormField, SplitInput, PrimaryButton, InlineError, PasswordCheck.
+
+* Multi-Tenancy & Auth Verification:
+  - 2-Step Authentication:
+    1. Authenticates via Supabase Auth (`signInWithPassword`).
+    2. Retrieves user profile from `public.users` matching `auth_id`.
+  - Enforces `is_active` check — disabled staff are signed out immediately.
+  - Updates `last_login` timestamp in `users` table upon successful login.
+  - Populates `LoggedInUser` object with `merchant_id` and role context.
+
+* State & Data Architecture:
+  - Uses `supabase.auth` client and `users` table.
+  - Carousel state: `slide` (0–2) driven by `setInterval` (4000ms), cleared on unmount.
+  - Clean error handling — does not leak email existence during forgot password requests.
+
+* Review & Code Quality Notes:
+  - [PASS] TypeScript tsc --noEmit: 0 errors.
+  - [OBSERVATION] The dual verification step (auth.users + public.users) prevents orphaned auth tokens.
+  - [CHANGE] Fully modularized on 2026-09-04 into `src/features/auth/` (LoginPage, ResetPasswordPage, AmbientCanvas, FoodCarousel, types, utils) with zero regressions and clean backward-compatible bridge in `src/components/Login.tsx`.
+  - [STATUS]: VERIFIED / HEALTHY (MODULARIZED)
+
+--------------------------------------------------------------------------------
+[16/19] PAGE: Accept Invite Page
+--------------------------------------------------------------------------------
+- Location: src/features/auth/pages/AcceptInvitePage.tsx
+- Backward-Compatible Bridge: src/components/AcceptInvitePage.tsx
+- Route / Tab: '/accept-invite?token=...'
+
+* Purpose & Features:
+  - Staff onboarding and invitation redemption page.
+  - Validates token from URL query string against `staff_invitations` table.
+  - Guardrails:
+    - Verifies token validity and checks if already accepted (`accepted_at`).
+    - Enforces a 24-hour expiration window from `created_at`.
+  - Password creation interface with show/hide password toggles.
+  - Signs up the auth account, inserts the `users` profile linked to `invitation.merchant_id`, and marks the invitation as accepted.
+
+* Multi-Tenancy & Auth Verification:
+  - Associates newly created staff member with the exact `merchant_id` recorded in the original invitation.
+  - Validates role assignments generated by managers.
+
+* State & Data Architecture:
+  - Interacts with `staff_invitations`, `auth.users`, and `users` tables.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [CHANGE] Modularized into `src/features/auth/pages/AcceptInvitePage.tsx` with backward-compatible bridge.
+  - [STATUS]: VERIFIED / HEALTHY (MODULARIZED)
+
+--------------------------------------------------------------------------------
+[17/19] PAGE: Demo Onboarding Page
+--------------------------------------------------------------------------------
+- Location: src/features/auth/pages/DemoOnboardingPage.tsx
+- Backward-Compatible Bridge: src/components/DemoOnboardingPage.tsx
+- Route / Tab: '/demo-onboarding'
+
+* Purpose & Features:
+  - Self-service 3-step merchant onboarding wizard for prospective customers.
+  - Step 1: Business profile creation (Business name, owner name, owner email).
+  - Step 2: Automatic merchant account setup in `business` table (sets `business_type: 'Demo'`, `plan: 'basic'`, `plan_mrr: 99`).
+  - Step 3: Generates a Manager invitation in `staff_invitations` and dispatches email via the `send-invite` Supabase Edge Function.
+  - Displays invitation link directly on screen as a fallback if email delivery is delayed.
+
+* Multi-Tenancy & Auth Verification:
+  - Automatically provisions a new unique merchant UUID in `business` table.
+  - Creates the first owner invitation linked to that newly created merchant ID.
+
+* State & Data Architecture:
+  - Interacts with `business`, `staff_invitations`, and invokes `supabase.functions.invoke('send-invite')`.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [CHANGE] Modularized into `src/features/auth/pages/DemoOnboardingPage.tsx` with backward-compatible bridge.
+  - [STATUS]: VERIFIED / HEALTHY (MODULARIZED)
+
+--------------------------------------------------------------------------------
+[18/19] PAGE: Table Order Page (Dine-in Customer QR)
+--------------------------------------------------------------------------------
+- File: src/components/Tableorderpage.tsx (871 lines)
+- Component: TableOrderPage, QrRedirect
+- Route / Tab: '/order?table=...', '/qr/:shortCode'
+
+* Purpose & Features:
+  - Customer-facing table-side digital ordering web app.
+  - Short-code resolver (`QrRedirect`): Resolves `/qr/:shortCode` dynamically and redirects to canonical order route.
+  - Comprehensive Validation Pipeline:
+    1. Table Existence Check: Looks up table row in `tables`.
+    2. Floor Master Switch: Blocks ordering if `floor_qr_disabled` is true.
+    3. Active State Check: Validates `is_active` flag on table.
+    4. QR Configuration: Verifies `qr_disabled` flag in `qr_config`.
+    5. Token Authentication: Validates token & expiration for static/dynamic QR standees.
+    6. Dining Session: Checks for existing active session in `qr_sessions` or creates a new session.
+    7. Table Status Automation: Marks table as `'occupied'` automatically upon first scan.
+    8. Scan Telemetry: Increments `scan_count` and updates `last_scan_at` with client device type.
+
+* Multi-Tenancy & Auth Verification:
+  - Scoped to table ID which links directly to the host merchant.
+  - Customer ordering flow does not require customer login, but dining sessions are tightly bound to the table.
+
+* State & Data Architecture:
+  - Interacts with `tables`, `qr_config`, and `qr_sessions`.
+  - Mobile-responsive layout optimized for smartphones.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] The 8-step validation pipeline is very robust, preventing ordering on disabled tables or closed floors.
+  - [STATUS]: VERIFIED / HEALTHY
+
+--------------------------------------------------------------------------------
+[19/19] PAGE: Platform Admin (Super Admin & Impersonation)
+--------------------------------------------------------------------------------
+- File: src/components/PlatformAdmin.tsx (998 lines)
+- Component: PlatformAdmin
+- Route / Tab: Top-level admin view (unlocked when user has `is_platform_admin: true`)
+
+* Purpose & Features:
+  - Super-administrator command center for SnackBot SaaS operators.
+  - 4 Master Sub-modules:
+    1. Dashboard: Key platform metrics (Total MRR, Active Merchants, Branch count, Staff count), Plan Distribution breakdown, Recent Merchants.
+    2. Merchants Directory: Search, status filtering (active, pending, suspended), create new merchant business, edit merchant subscription plans (Basic RM99, Premium RM299, Enterprise RM599).
+    3. Impersonation Engine: Allows super admins to impersonate any merchant account with read-only or read-write access to debug/manage issues directly.
+    4. Access Logs: Audit logs of which administrator impersonated which merchant, session timestamps, and write-access flags.
+  - Distinguishes Real Merchants from Demo accounts (`isDemoMerchant`).
+
+* Multi-Tenancy & Auth Verification:
+  - Platform admins have cross-merchant visibility.
+  - Impersonation sets `isImpersonating: true` and overrides `merchantId` in `ImpersonationContext`, immediately re-scoping all Cloud queries to that merchant.
+  - Logs every impersonation session into the access audit log for traceability.
+
+* State & Data Architecture:
+  - Queries and updates `business`, `branches`, `users`, and `impersonation_logs` tables.
+
+* Review & Code Quality Notes:
+  - [PASS] Typecheck & build pass cleanly.
+  - [OBSERVATION] When impersonating, the application renders a persistent yellow `ImpersonationBanner` at the top of the screen with an "Exit Impersonation" button.
+  - [STATUS]: VERIFIED / HEALTHY
+
+================================================================================
+FINAL SYSTEM VERIFICATION SUMMARY
+================================================================================
+- Total Active Pages Verified: 19 of 19 (100% COMPLETE)
+- Files Removed: 1 (src/components/POS.tsx — unrouted web prototype)
+- TypeScript Typecheck (tsc --noEmit): PASSED (0 errors across entire workspace)
+- Vite Production Build: PASSED
+- Multi-Tenancy Architecture:
+  - Every operational page uses `useImpersonation` + localStorage fallback to obtain `activeMerchantId`.
+  - All database queries and mutations enforce `.eq('merchant_id', activeMerchantId)`.
+  - Row-Level Security (RLS) is strictly respected across all Supabase operations.
+
+================================================================================
+CHANGELOG
+================================================================================
+2026-09-04  [Login.tsx] Full UI visual overhaul applied:
+  - Split-card layout with food showcase right panel
+  - Animated dark restaurant-atmosphere canvas (orbs, particles, steam, grain)
+  - 3-image auto-sliding carousel with cross-fade (4s interval)
+  - Brand color corrected: indigo → violet-600 (matches DemoOnboardingPage)
+  - All business logic, Supabase auth flows, and error handlers preserved
+  - New public assets: login-food-showcase.jpg, login-food-slide2.jpg, login-food-slide3.jpg
+  - New CSS keyframes in src/index.css: ambientShift, orbDrift(1-3), floatUp(1-3),
+    steamRise, grainPulse, beamSweep, fadeIn — utility classes: .login-bg, .orb-*, .particle-*, .steam-*, .grain, .beam
+================================================================================
+

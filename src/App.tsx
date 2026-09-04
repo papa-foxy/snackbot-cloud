@@ -9,28 +9,29 @@ import { TranslationProvider }            from './contexts/TranslationContext';
 import { SettingsProvider, useSettings }  from './contexts/SettingsContext';
 import { ImpersonationProvider, useImpersonation } from './contexts/ImpersonationContext';
 
-import { Sidebar }          from './components/Sidebar';
-import { Login, ResetPassword } from './components/Login';
-import { PlatformAdmin }    from './components/PlatformAdmin';
-import { ImpersonationBanner } from './components/ImpersonationBanner';
-import { Dashboard }        from './components/Dashboard';
-import { Reports }          from './components/Reports';
-import { LHDN }             from './components/LHDN';
-import { Settings }         from './components/Settings';
-import { MenuManagement }   from './components/MenuManagement';
-import { AuditLogs }        from './components/AuditLogs';
-import { Inventory }        from './components/Inventory';
-import { Users }            from './components/Users';
-import { Loyalty }          from './components/Loyalty';
-import { Promotions }       from './components/Promotions';
-import { QRManagement }     from './components/QRManagement';
-import { CloudSync }        from './components/CloudSync';
-import { BranchesList }     from './components/BranchesList';
-import { TaxManagement }    from './components/TaxManagement';
-import { AIAssistant }      from './components/AIAssistant';
-import { TableOrderPage, QrRedirect } from './components/Tableorderpage';
-import { AcceptInvitePage } from './components/AcceptInvitePage';
-import { DemoOnboardingPage } from './components/DemoOnboardingPage';
+import { Sidebar, ImpersonationBanner } from './components/layout';
+import {
+  LoginPage as Login,
+  ResetPasswordPage as ResetPassword,
+  AcceptInvitePage,
+  DemoOnboardingPage,
+} from './features/auth';
+import { PlatformAdmin }    from './features/platform-admin';
+import { Dashboard }        from './features/dashboard';
+import { Reports }          from './features/reports';
+import { LHDN, TaxManagement, AuditLogs } from './features/compliance';
+import { Settings }         from './features/settings';
+import { MenuManagement }   from './features/menu';
+import { Inventory }        from './features/inventory';
+import { Users }            from './features/users';
+import { Loyalty, Promotions } from './features/marketing';
+import { QRManagement }     from './features/tables-qr';
+import { CloudSync }        from './features/sync';
+import { BranchesList }     from './features/branches';
+import { AIAssistant }      from './features/ai-assistant';
+import { TableOrderPage, QrRedirect } from './features/ordering';
+import { useSupabaseKeepalive } from './hooks/useSupabaseKeepalive';
+import { supabase } from './lib/supabase';
 import { cn }               from './utils/cn';
 
 function detectQrRoute(): 'order' | 'qr_redirect' | 'accept_invite' | 'demo_onboarding' | 'reset_password' | null {
@@ -144,6 +145,7 @@ function AppContent({
 }
 
 function AppInner() {
+  useSupabaseKeepalive();
   const [activeTab, setActiveTab]         = useState('dashboard');
   const [user, setUser]                   = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -170,7 +172,12 @@ function AppInner() {
   }, []);
 
   const handleLogin          = (userData: any) => { setUser(userData); localStorage.setItem('snackbot_user', JSON.stringify(userData)); };
-  const handleLogout         = () => { if (isImpersonating) endImpersonation(); setUser(null); localStorage.removeItem('snackbot_user'); };
+  const handleLogout         = async () => {
+    if (isImpersonating) endImpersonation();
+    localStorage.removeItem('snackbot_user');
+    setUser(null);
+    try { await supabase.auth.signOut(); } catch {}
+  };
   const handleSetActiveTab   = (tab: string) => setActiveTab(tab);
   const handleImpersonate    = async (merchantId: string, merchantName: string, writeAccess: boolean) => {
     await startImpersonation(merchantId, merchantName, writeAccess);
