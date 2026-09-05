@@ -1,0 +1,503 @@
+========================================================================================
+             SNACKBOT CLOUD WEB APP - COMPLETE PAGE & SCREEN FLOWCHART
+========================================================================================
+Target Application : SnackBot Cloud (Web Management Portal & Customer Web Order)
+Audience           : Cloud Portal Users (Restaurant Owners, Managers, Staff, Admins)
+Document File      : PAGE_FLOW_CHART.txt
+========================================================================================
+
+
+TABLE OF CONTENTS:
+----------------------------------------------------------------------------------------
+1. ENTRY & ROUTE RESOLUTION FLOW (HOW CLOUD PICKS THE SCREEN)
+2. PUBLIC & AUTHENTICATION SCREENS FLOW
+   2.1. Login Screen Flow (/ & OAuth)
+   2.2. Password Reset Screen Flow (/reset-password)
+   2.3. Staff Invitation Acceptance Flow (/accept-invite)
+   2.4. Merchant Self-Serve Demo Onboarding Flow (/demo-onboarding)
+   2.5. Customer Cloud Web Ordering Flow (/qr/:id & /order)
+3. CLOUD BACKOFFICE NAVIGATION FLOW (SIDEBAR MAP)
+4. FEATURE SCREEN-BY-SCREEN FLOWCHARTS
+   4.1. Dashboard Screen Flow
+   4.2. Reports & Analytics Screen Flow (8 Sub-sections + Modals)
+   4.3. Menu Management Screen Flow (Items + Modals)
+   4.4. Inventory Screen Flow (Stocks & Alerts)
+   4.5. Tables & QR Code Generator Screen Flow
+   4.6. Staff & Users Screen Flow (Roles & PINs)
+   4.7. Marketing Screens (Promotions & Loyalty)
+   4.8. Compliance Screens (LHDN E-Invoice & Tax & Audit)
+   4.9. Cloud Sync Screen Flow
+   4.10. Settings & Customization Screen Flow
+5. PLATFORM SUPERADMIN & IMPERSONATION FLOW
+6. AI ASSISTANT OVERLAY & DEEP-LINKING FLOW
+----------------------------------------------------------------------------------------
+
+
+========================================================================================
+1. ENTRY & ROUTE RESOLUTION FLOW (HOW CLOUD PICKS THE SCREEN)
+========================================================================================
+
+When any user opens the SnackBot Cloud URL in their browser:
+
+                      [USER OPENS URL IN BROWSER]
+                                   |
+                                   v
+             +-------------------------------------------+
+             | URL Path Pattern Matching (detectQrRoute) |
+             +---------------------+---------------------+
+                                   |
+    +-----------------+------------+------------+-----------------+-----------------+
+    |                 |                         |                 |                 |
+    v                 v                         v                 v                 v
+[/qr/:id]          [/order]             [/reset-password]  [/accept-invite] [/demo-onboarding]
+    |                 |                         |                 |                 |
+    v                 v                         v                 v                 v
+[QrRedirect]   [TableOrderPage]         [ResetPassword]   [AcceptInvite]   [DemoOnboarding]
+(Parses ID &   (Public Mobile           (Enter New        (Staff Set       (New Merchant
+Redirects to    Menu Web App)            Password)         Password)        Trial Setup)
+/order)
+                                                |
+                                                v
+                                  [Is User on Root Route "/"?]
+                                                |
+                               +----------------+----------------+
+                               |                                 |
+                               v                                 v
+                       [No Active Session]               [Active Session]
+                               |                                 |
+                               v                                 v
+                          [LoginPage]                   [AppContent Layout]
+                       (Email/Pass/OAuth)                        |
+                                                                 v
+                                                        [Sidebar + Active Tab]
+                                                        (Defaults to Dashboard)
+
+
+========================================================================================
+2. PUBLIC & AUTHENTICATION SCREENS FLOW
+========================================================================================
+
+----------------------------------------------------------------------------------------
+2.1. LOGIN SCREEN FLOW (URL: /)
+----------------------------------------------------------------------------------------
+
+ +------------------------------------------------------------------------------------+
+ | LOGIN PAGE (src/features/auth/pages/LoginPage.tsx)                                 |
+ |                                                                                    |
+ |  [Left Column: Interactive Form]           [Right Column: Dynamic Food Showcase]  |
+ |   - Brand Badge (Orange + White Utensils)   - 3-Slide Animated Image Carousel      |
+ |   - Heading ("Welcome Back!")               - Restaurant Feature Highlights        |
+ |   - Email Input field                       - Real-time Order Stats Callout        |
+ |   - Password Input field (with Show/Hide)                                          |
+ |   - "Forgot Password?" Link                                                        |
+ |   - Primary "Sign In" Button                                                       |
+ |   - Divider ("or continue with")                                                   |
+ |   - Social OAuth Buttons: [Google] [Apple] [Facebook]                              |
+ +------------------------------------------------------------------------------------+
+           |                         |                           |
+           v                         v                           v
+   [Click "Sign In"]        [Click "Forgot?"]           [Click Social Button]
+           |                         |                           |
+   Supabase Auth             View switches to:          Runs Provider Preflight Probe:
+           |                 "Reset Password"                    |
+     +-----+-----+                   |                    +------+------+
+     |           |                   v                    |             |
+     v           v            Enter email & click       Enabled?     Disabled?
+  Success     Failure         "Send Reset Link"           |             |
+     |           |                   |                   YES            NO
+     v           v                   v                    |             v
+  Enter      Display Red      View switches to:       Redirect to   Display Orange
+  Cloud      Error Alert      "Check Your Email"       OAuth URL     Alert: "Provider
+  Portal     in Card          confirmation screen                    not configured"
+
+
+----------------------------------------------------------------------------------------
+2.2. PASSWORD RESET SCREEN FLOW (URL: /reset-password)
+----------------------------------------------------------------------------------------
+
+ User clicks link in their email inbox
+         |
+         v
+ Opens `/reset-password` in browser
+         |
+         v
+ [ResetPasswordPage]
+   - Validates secure reset token from URL
+   - Input: New Password
+   - Input: Confirm New Password
+         |
+         v
+ Clicks "Update Password"
+         |
+   +-----+-----+
+   |           |
+   v           v
+Success     Failure (Mismatch or Expired link)
+   |           |
+   |           v
+   |        Show error message with "Request a new link" button
+   v
+Redirects to `/` with Success notification -> User logs in with new password
+
+
+----------------------------------------------------------------------------------------
+2.3. STAFF INVITATION ACCEPTANCE FLOW (URL: /accept-invite)
+----------------------------------------------------------------------------------------
+
+ Manager invites employee -> Employee clicks link in welcome email
+         |
+         v
+ Opens `/accept-invite` in browser
+         |
+         v
+ [AcceptInvitePage]
+   - Shows Restaurant Name & Assigned Role (e.g. "Cashier at Downtown Branch")
+   - Input: Create Your Password
+   - Input: Confirm Password
+         |
+         v
+ Clicks "Activate My Account"
+         |
+         v
+ Session created -> Instantly enters Cloud Portal Dashboard
+
+
+----------------------------------------------------------------------------------------
+2.4. MERCHANT DEMO ONBOARDING FLOW (URL: /demo-onboarding)
+----------------------------------------------------------------------------------------
+
+ New prospect visits `/demo-onboarding`
+         |
+         v
+ [DemoOnboardingPage]
+   - Step 1: Restaurant Name
+   - Step 2: Select Cuisine Type (Cafe, Fast Food, Fine Dining, Bar)
+   - Step 3: Location / City (Defaults currency to MYR - RM)
+         |
+         v
+ Clicks "Launch Instant Demo"
+         |
+         v
+ Cloud seeds sample menu items, tables, categories & sales history
+         |
+         v
+ Redirects into fully-populated Cloud Portal ready for exploration
+
+
+----------------------------------------------------------------------------------------
+2.5. CUSTOMER CLOUD WEB ORDERING FLOW (URL: /qr/:id -> /order)
+----------------------------------------------------------------------------------------
+
+ Customer scans table QR code (e.g. /qr/TBL-102)
+         |
+         v
+ [QrRedirect Page]
+   - Resolves Table ID & Branch ID
+   - Forwards browser to `/order?branch=xxx&table=xxx`
+         |
+         v
+ [TableOrderPage - Cloud Web App View]
+   +-----------------------------------------------------------------------+
+   | Header: Restaurant Brand Logo, Table Number Badge ("Table 04")        |
+   +-----------------------------------------------------------------------+
+   | Category Tabs: [All]  [Popular]  [Mains]  [Drinks]  [Desserts]        |
+   +-----------------------------------------------------------------------+
+   | Search & Filter Bar: Quick search by dish name                        |
+   +-----------------------------------------------------------------------+
+   | Food Card Grid: Photo, Name, Price, "Add to Cart" Button              |
+   +-----------------------------------------------------------------------+
+   | Sticky Bottom Bar: Cart Summary (3 Items - RM 42.00) [View Order]     |
+   +-----------------------------------------------------------------------+
+         |
+         +---> Click Food Card ===> [Item Customization Drawer]
+         |                           - Size / Portion Options
+         |                           - Flavor / Modifier Checkboxes
+         |                           - Special Notes TextArea
+         |                           - [Add to Cart] Button
+         |
+         `---> Click [View Order] ===> [Order Review Slide-over]
+                                        - List of items with +/- counters
+                                        - Subtotal, Tax (SST), Service Charge
+                                        - [Submit Order to Kitchen] Button
+                                              |
+                                              v
+                                        Order saved in Cloud DB
+                                        Live Status screen: "Order Placed"
+
+
+========================================================================================
+3. CLOUD BACKOFFICE NAVIGATION FLOW (SIDEBAR MAP)
+========================================================================================
+
+When logged in, the Cloud application is driven by the responsive Sidebar:
+
++--------------------------------------------------------------------------------------+
+| SIDEBAR SECTIONS             ACTIVE TAB STATE      SCREEN COMPONENT RENDERED         |
++--------------------------------------------------------------------------------------+
+| 1.  Dashboard                'dashboard'           <Dashboard />                     |
+| 2.  Sales Reports            'reports'             <Reports />                       |
+| 3.  Menu Management          'menu'                <MenuManagement />                |
+| 4.  Inventory                'inventory'           <Inventory />                     |
+| 5.  Branch Outlets           'branches'            <BranchesList />                  |
+| 6.  Tables & QR              'tables_qr'           <QRManagement />                  |
+| 7.  Staff & Users            'users'               <Users />                         |
+| 8.  Promotions               'promotions'          <Promotions />                    |
+| 9.  Loyalty Rewards          'loyalty'             <Loyalty />                       |
+| 10. Tax Configuration        'tax'                 <TaxManagement />                 |
+| 11. LHDN E-Invoice           'lhdn'                <LHDN />                          |
+| 12. Cloud Sync               'cloud_sync'          <CloudSync />                     |
+| 13. Audit Logs               'audit'               <AuditLogs />                     |
+| 14. Settings                 'settings'            <Settings />                      |
+|                                                                                      |
+| [SUPERADMIN ONLY]                                                                    |
+| 15. Platform Admin           'platform_admin'      <PlatformAdmin />                 |
+|                                                                                      |
+| [BOTTOM CONTROLS]                                                                    |
+| - Theme Toggle Button        (Switches Light <-> Dark mode in real time)             |
+| - Logout Button              (Clears Supabase session and returns to Login)          |
++--------------------------------------------------------------------------------------+
+
+
+========================================================================================
+4. FEATURE SCREEN-BY-SCREEN FLOWCHARTS
+========================================================================================
+
+----------------------------------------------------------------------------------------
+4.1. DASHBOARD SCREEN FLOW (activeTab = 'dashboard')
+----------------------------------------------------------------------------------------
+
+ [Dashboard Screen]
+   ├── Top KPI Cards: Today's Revenue | Total Orders | Avg Basket Size | Active Tables
+   ├── Time Range Filter: [Today] [Yesterday] [Last 7 Days] [This Month]
+   ├── Hourly Sales Chart: Visual bars showing peak ordering hours
+   ├── Popular Items Ranking: Top 5 dishes sold today
+   └── Recent Live Transactions Table
+         |
+         +---> Click "View All Reports" ──> Switches activeTab to 'reports'
+         +---> Click "Manage Menu"      ──> Switches activeTab to 'menu'
+         `---> Click "View Tables"      ──> Switches activeTab to 'tables_qr'
+
+
+----------------------------------------------------------------------------------------
+4.2. REPORTS & ANALYTICS SCREEN FLOW (activeTab = 'reports')
+----------------------------------------------------------------------------------------
+
+ [Reports Screen]
+   ├── Global Report Header: Date Picker | Branch Selector | Export (PDF / Excel)
+   ├── Section Navigation Tabs:
+   │     ├── [Sales Revenue]       ──> Daily/Weekly charts, net sales, discounts
+   │     ├── [Payments]            ──> Cash vs Card vs QR e-Wallet breakdown
+   │     ├── [Menu Insights]       ──> High-profit vs Low-profit matrix
+   │     ├── [Inventory Stock]     ──> COGS (Cost of Goods Sold) vs Food Waste
+   │     ├── [Staff Shift]         ──> Cashier shifts, cash variance in drawer
+   │     ├── [Table & Customer]    ──> Table turnover speed & average spend
+   │     ├── [Session Reports]     ──> Live shift totals
+   │     └── [End-of-Day (EOD)]    ──> Official Day Close & Z-Report
+   │
+   ├── Click any transaction row ───> Opens [Transaction Receipt Modal]
+   │                                  (Full itemized bill, tax breakdown, reprint)
+   │
+   ├── Click "Generate EOD" ────────> Opens [EOD Report Receipt Modal]
+   │                                  (Daily summary slip ready for thermal print)
+   │
+   └── Click "AI Insights" Button ──> Slides open [AI Insight Drawer]
+                                      (AI analysis of sales trends & recommendations)
+
+
+----------------------------------------------------------------------------------------
+4.3. MENU MANAGEMENT SCREEN FLOW (activeTab = 'menu')
+----------------------------------------------------------------------------------------
+
+ [Menu Management Screen]
+   ├── Category Header Pills: [All] [Beverages] [Mains] [Desserts] [+ Add Category]
+   ├── Search Bar & Filter Options
+   ├── Food Items Grid / Table
+   │     ├── Item Thumbnail, Name, SKU, Price, Cost Margin
+   │     ├── Availability Toggle (Instant In-Stock <-> Out-of-Stock switch)
+   │     └── Action Buttons: [Edit] [Modifiers] [Delete]
+   │
+   ├── Click [+ Add Item] or [Edit] ─> Opens [Item Editor Modal]
+   │                                   - Upload food photo
+   │                                   - Title, Description, Base Price, Cost
+   │                                   - Tax Category (SST exempt / standard)
+   │                                   - Save button -> Refreshes menu
+   │
+   └── Click [Modifiers] ────────────> Opens [Modifier Group Modal]
+                                       - Sugar Level: 0%, 50%, 100%
+                                       - Ice Level: None, Normal, Extra
+                                       - Add-ons: Extra Cheese (+RM 2.00)
+
+
+----------------------------------------------------------------------------------------
+4.4. INVENTORY SCREEN FLOW (activeTab = 'inventory')
+----------------------------------------------------------------------------------------
+
+ [Inventory Screen]
+   ├── Summary Cards: Total Items Tracked | Low Stock Alerts | Out of Stock Items
+   ├── Ingredient Stock Table (Item, Category, Current Quantity, Unit, Par Level)
+   ├── Low-Stock Indicator (Turns Red when Quantity < Par Level)
+   │
+   ├── Click [+ Add Stock Item] ─────> Opens [New Ingredient Modal]
+   │
+   ├── Click [Adjust Stock] ─────────> Opens [Stock Adjustment Modal]
+   │                                   - Reason: Wastage, Spoilage, Manual Count
+   │                                   - Add/Subtract Quantity
+   │
+   └── Click [Suppliers Tab] ────────> Opens Supplier Directory & Purchase History
+
+
+----------------------------------------------------------------------------------------
+4.5. TABLES & QR CODE GENERATOR SCREEN FLOW (activeTab = 'tables_qr')
+----------------------------------------------------------------------------------------
+
+ [Tables & QR Screen]
+   ├── Floor / Zone Selector: [Main Hall] [Outdoor Patio] [Private Room]
+   ├── Table Grid View (Interactive Table Cards with Live Status Colors)
+   │
+   ├── Click [+ Add Table] ──────────> Creates new table (e.g. "Table 12", Capacity: 4)
+   │
+   ├── Click Table Card ─────────────> Opens [Table Details Drawer]
+   │                                   - Current active order items
+   │                                   - Table bill total
+   │                                   - [Clear / Free Table] button
+   │
+   └── Click [QR Code Button] ───────> Opens [QR Generator Modal]
+                                       - Shows scannable QR Code
+                                       - Direct Order URL preview
+                                       - [Download PNG] Button
+                                       - [Print Table Sticker Sheet] Button
+
+
+----------------------------------------------------------------------------------------
+4.6. STAFF & USERS SCREEN FLOW (activeTab = 'users')
+----------------------------------------------------------------------------------------
+
+ [Staff & Users Screen]
+   ├── Employee Directory Table (Name, Email, Role, Branch, Status)
+   │
+   ├── Click [+ Invite Staff] ───────> Opens [Invite Employee Modal]
+   │                                   - Staff Email & Full Name
+   │                                   - Role Selection: [Cashier] [Manager] [Chef]
+   │                                   - Send Invitation Email
+   │
+   ├── Click [Change Role] ──────────> Role selection dropdown
+   │
+   └── Click [Reset PIN] ────────────> Opens [4-Digit POS PIN Modal]
+                                       - Set quick authorization PIN
+
+
+----------------------------------------------------------------------------------------
+4.7. MARKETING SCREENS FLOW (activeTab = 'promotions' | 'loyalty')
+----------------------------------------------------------------------------------------
+
+ [Promotions Screen (activeTab = 'promotions')]
+   ├── Active Discounts Table (Code, Discount %, Valid Dates, Usage Count)
+   └── Click [+ New Promo] ──────────> Opens [Promo Creator Modal]
+                                       - Percentage (e.g. 15% off) or Fixed (RM 5 off)
+                                       - Minimum spend condition
+                                       - Date & Time schedule (e.g. Happy Hour)
+
+ [Loyalty Screen (activeTab = 'loyalty')]
+   ├── Tier Configuration: Bronze, Silver, Gold, VIP
+   ├── Earning Rule: Spend RM 1.00 = 1 Loyalty Point
+   └── Reward Catalog: Redeem 100 Points = Free Iced Latte
+
+
+----------------------------------------------------------------------------------------
+4.8. COMPLIANCE SCREENS FLOW (activeTab = 'lhdn' | 'tax' | 'audit')
+----------------------------------------------------------------------------------------
+
+ [LHDN E-Invoice Screen (activeTab = 'lhdn')]
+   ├── Malaysian MyInvois Integration Status (Connected / Synced)
+   ├── E-Invoice Ledger Table (UUID, Invoice Date, Buyer Name, Status, Tax Amount)
+   ├── Click [Submit Consolidated] ──> Groups monthly B2C sales into 1 LHDN submission
+   └── Click [View Validation] ──────> Shows LHDN QR Code & Digital Signature Verification
+
+ [Tax Management Screen (activeTab = 'tax')]
+   ├── Sales & Service Tax (SST) Rate Input (e.g. 6% or 8%)
+   ├── Service Charge Rate Input (e.g. 10%)
+   └── Tax Registration Number (SST ID) Input
+
+ [Audit Logs Screen (activeTab = 'audit')]
+   └── Immutable Event Log (Timestamp, User Email, Action, Old Value, New Value)
+
+
+----------------------------------------------------------------------------------------
+4.9. CLOUD SYNC SCREEN FLOW (activeTab = 'cloud_sync')
+----------------------------------------------------------------------------------------
+
+ [Cloud Sync Screen]
+   ├── Connected Terminals List (Counter POS 01, Handheld Tablet 02)
+   ├── Connection Status Badge (Online / Offline / Syncing)
+   ├── Pending Sync Queue (Offline orders waiting to upload)
+   └── Click [Force Full Sync] ──────> Triggers immediate bidirectional database sync
+
+
+----------------------------------------------------------------------------------------
+4.10. SETTINGS & CUSTOMIZATION SCREEN FLOW (activeTab = 'settings')
+----------------------------------------------------------------------------------------
+
+ [Settings Screen]
+   ├── Section Menu:
+   │     ├── [Restaurant Profile]    ──> Store Name, Logo, Phone, Address, Currency
+   │     ├── [Appearance & Theme]    ──> Light Mode / Dark Mode / Brand Palette
+   │     ├── [Receipt Customization] ──> Header text, Footer message, Logo toggle
+   │     ├── [Printer Settings]      ──> Thermal Receipt & Kitchen IP Printers
+   │     └── [Operating Hours]       ──> Open/Close times per day of week
+   │
+   └── Click [Save Changes] ─────────> Updates settings in Cloud DB + Instant live preview
+
+
+========================================================================================
+5. PLATFORM SUPERADMIN & IMPERSONATION FLOW
+========================================================================================
+
+ When a Platform Superadmin logs in:
+         |
+         v
+ [Platform Admin Portal (activeTab = 'platform_admin')]
+   ├── Tenant Directory (List of all restaurant merchants using SnackBot)
+   ├── Subscription status, registered branches, monthly order counts
+   │
+   └── Click [Impersonate Tenant] Button
+             |
+             v
+      [Impersonation Mode Activated!]
+      - Amber Banner appears across top of screen:
+        "Viewing as Merchant: Kopi & Toast Cafe [Exit Impersonation]"
+      - Superadmin navigates all merchant pages (Menu, Reports, Settings) as that owner
+             |
+             v
+      Click [Exit Impersonation] ──> Returns to Superadmin Portal
+
+
+========================================================================================
+6. AI ASSISTANT OVERLAY & DEEP-LINKING FLOW
+========================================================================================
+
+ On ANY page in the Cloud backoffice:
+   Customer or Manager sees floating AI Assistant button in bottom corner
+         |
+         v
+   Click Button ──> Slides open [AIAssistant Drawer]
+         |
+         +---> User asks: "How do I change the receipt footer message?"
+         |       |
+         |       v
+         |     AI answers explanation + displays clickable shortcut button
+         |       |
+         |       v
+         |     User clicks shortcut button
+         |       |
+         |       v
+         |     Cloud instantly switches activeTab to 'settings' and smooth-scrolls
+         |     directly to the Receipt Configuration card!
+         |
+         +---> User asks: "Show me today's best selling drink"
+                 |
+                 v
+               AI queries report cache and summarizes top drink sales directly
+
+========================================================================================
+                               END OF FLOWCHART
+========================================================================================

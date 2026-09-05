@@ -1,0 +1,481 @@
+========================================================================================
+                      SNACKBOT CLOUD - SYSTEM ARCHITECTURE & FLOWCHARTS
+========================================================================================
+Document Version : 2.0.0
+Last Updated     : 2026-09-05
+Format           : Plain Text / ASCII Flowchart Architecture Specification
+========================================================================================
+
+
+TABLE OF CONTENTS:
+----------------------------------------------------------------------------------------
+1. HIGH-LEVEL ARCHITECTURAL OVERVIEW
+2. END-TO-END SYSTEM FLOWCHART (TIER VIEW)
+3. DETAILED WORKFLOW FLOWCHARTS
+   3.1. Authentication & Session Flow
+   3.2. Customer QR Self-Ordering Flow
+   3.3. Merchant / Staff Administration Flow
+   3.4. Supabase Keepalive & Automated Heartbeat Flow
+4. DOMAIN FEATURE COMPONENT ARCHITECTURE
+5. ROLE-BASED ACCESS CONTROL (RBAC) & SECURITY MATRIX
+6. DATA PERSISTENCE & SUPABASE SCHEMA TOPOLOGY
+----------------------------------------------------------------------------------------
+
+
+========================================================================================
+1. HIGH-LEVEL ARCHITECTURAL OVERVIEW
+========================================================================================
+
+SnackBot Cloud is built upon a Domain-Driven Modular Single-Page Architecture (SPA):
+
+  +-----------------------+      +-----------------------+      +-----------------------+
+  |    CUSTOMER CLIENT    |      |  MERCHANT / CASHIER   |      |    PLATFORM ADMIN     |
+  |  (Mobile QR Scanner)  |      |   (Desktop / Tablet)  |      |   (Superuser Portal)  |
+  +-----------+-----------+      +-----------+-----------+      +-----------+-----------+
+              |                              |                              |
+              +----------------------+       |       +----------------------+
+                                     |       |       |
+                                     v       v       v
+                            +---------------------------------+
+                            |       Vite + React 18 SPA       |
+                            |   (Tailwind CSS + Lucide Icons) |
+                            +----------------+----------------+
+                                             |
+                                             v
+                            +---------------------------------+
+                            |  Global State & Route Dispatch  |
+                            |    (App.tsx / Context Providers)|
+                            +----------------+----------------+
+                                             |
+                                             v
+                            +---------------------------------+
+                            |  Domain Feature Modules (src/)  |
+                            |  (auth, reports, ordering, etc) |
+                            +----------------+----------------+
+                                             |
+                                             v
+                            +---------------------------------+
+                            |      Supabase Client SDK        |
+                            |     (REST, Auth, Realtime)      |
+                            +----------------+----------------+
+                                             |
+                                             v
+                            +---------------------------------+
+                            |   Supabase Cloud / PostgreSQL   |
+                            |   (RLS Policies, Tables, Auth)  |
+                            +---------------------------------+
+
+
+========================================================================================
+2. END-TO-END SYSTEM FLOWCHART (TIER VIEW)
+========================================================================================
+
++--------------------------------------------------------------------------------------+
+| [1] CLIENT LAYER (Web Browsers, Mobile Devices, Tablets)                             |
+|                                                                                      |
+|  Customer Device (QR Code Scan)       Merchant Staff (POS / Admin Portal)            |
+|       |                                        |                                     |
++-------|----------------------------------------|-------------------------------------+
+        |                                        |
+        v                                        v
++--------------------------------------------------------------------------------------+
+| [2] ROUTING & ENTRY LAYER (main.tsx -> App.tsx)                                      |
+|                                                                                      |
+|   URL Path Detection:                                                                |
+|     |-- /qr/:id            ===>  QrRedirect Handler                                  |
+|     |-- /order             ===>  TableOrderPage (Public Customer Flow)               |
+|     |-- /reset-password    ===>  ResetPasswordPage                                   |
+|     |-- /accept-invite     ===>  AcceptInvitePage                                    |
+|     |-- /demo-onboarding   ===>  DemoOnboardingPage                                  |
+|     `-- / (root)           ===>  Auth State Evaluation                               |
+|                                     |                                                |
+|                                     +---> Not Authenticated  ===>  LoginPage         |
+|                                     `---> Authenticated      ===>  AppContent Layout |
++--------------------------------------------------------------------------------------+
+                                                 |
+                                                 v
++--------------------------------------------------------------------------------------+
+| [3] GLOBAL STATE & CONTEXT PROVIDERS                                                 |
+|                                                                                      |
+|   +---------------------+   +---------------------+   +--------------------------+   |
+|   | SettingsProvider    |   | TranslationProvider |   | ImpersonationProvider    |   |
+|   | (Theme, Branding,   |   | (Multi-language i18n|   | (Superadmin view as      |   |
+|   |  Colors, Currency)  |   |  dictionary engine) |   |  merchant branch tenant) |   |
+|   +---------------------+   +---------------------+   +--------------------------+   |
++--------------------------------------------------------------------------------------+
+                                                 |
+                                                 v
++--------------------------------------------------------------------------------------+
+| [4] LAYOUT & NAVIGATION WRAPPER (src/components/layout)                              |
+|                                                                                      |
+|   +------------------------------------------------------------------------------+   |
+|   | ImpersonationBanner (Rendered if platform admin is impersonating a merchant) |   |
+|   +------------------------------------------------------------------------------+   |
+|   | Sidebar Navigation        | Main Content View Area                           |   |
+|   | (Active tab selector,     | (Dynamic feature component injection based on    |   |
+|   |  merchant branding, user  |  selected activeTab state)                       |   |
+|   |  profile, logout trigger) |                                                  |   |
+|   +------------------------------------------------------------------------------+   |
++--------------------------------------------------------------------------------------+
+                                                 |
+                                                 v
++--------------------------------------------------------------------------------------+
+| [5] DOMAIN FEATURE MODULES (src/features/)                                           |
+|                                                                                      |
+|   [Core Business]       [Operations]          [Analytics & Admin]    [Add-ons]       |
+|   |-- auth/             |-- ordering/         |-- reports/           |-- ai-assistant|
+|   |-- dashboard/        |-- inventory/        |-- platform-admin/                    |
+|   |-- menu/             |-- tables-qr/        |-- compliance/                        |
+|   `-- branches/         |-- sync/             |-- users/                             |
+|                         `-- marketing/        `-- settings/                          |
++--------------------------------------------------------------------------------------+
+                                                 |
+                                                 v
++--------------------------------------------------------------------------------------+
+| [6] DATA ACCESS & BACKGROUND HOOKS LAYER                                             |
+|                                                                                      |
+|   +-----------------------------+         +-------------------------------------+    |
+|   | src/lib/supabase.ts         |         | src/hooks/useSupabaseKeepalive.ts   |    |
+|   | Singleton Supabase Client   |         | In-browser 6-day ping listener      |    |
+|   | (Auth, Storage, PostgREST)  |         | (Updates _keepalive table counter)  |    |
+|   +-----------------------------+         +-------------------------------------+    |
++--------------------------------------------------------------------------------------+
+                                                 |
+                                                 v
++--------------------------------------------------------------------------------------+
+| [7] EXTERNAL & CLOUD INFRASTRUCTURE                                                  |
+|                                                                                      |
+|   +-----------------------------+         +-------------------------------------+    |
+|   | Supabase PostgreSQL DB      |         | GitHub Actions Cron Workflow        |    |
+|   | Tables, RLS, Auth Users,    | <------ | .github/workflows/supabase-keepalive|    |
+|   | Functions, Triggers         |         | (Runs node scripts/keepalive.js     |    |
+|   +-----------------------------+         |  every 5 days to prevent pause)     |    |
+|                                           +-------------------------------------+    |
++--------------------------------------------------------------------------------------+
+
+
+========================================================================================
+3. DETAILED WORKFLOW FLOWCHARTS
+========================================================================================
+
+----------------------------------------------------------------------------------------
+3.1. AUTHENTICATION & SESSION FLOW
+----------------------------------------------------------------------------------------
+
+ [User Opens App]
+        |
+        v
+  Is OAuth Callback? (Hash contains access_token OR Query contains code)
+        |
+        +---- YES ----> Parse Token / Exchange Code
+        |                     |
+        |                     v
+        |               Valid Session?
+        |                 |          |
+        |                YES         NO
+        |                 |          |
+        |                 |          v
+        |                 |      Display Auth Error Message
+        |                 |          |
+        |                 |          v
+        |                 +-----> [LoginPage]
+        |
+        +---- NO -----> Supabase.auth.getSession()
+                              |
+                     Existing Session?
+                        |          |
+                       YES         NO
+                        |          |
+                        v          v
+                  [Dashboard]   [LoginPage]
+                                     |
+           +-------------------------+-------------------------+
+           |                         |                         |
+           v                         v                         v
+     [Email + Password]       [Magic Link / Reset]      [Social OAuth Providers]
+           |                         |                  (Google, Apple, Facebook)
+           v                         v                         |
+    Supabase SignIn           Supabase Reset                   v
+           |                         |                 Preflight Endpoint Probe
+           +-------------------------+                         |
+           |                                                   +--- Online & Configured?
+           v                                                   |       |
+      Success?                                                YES      NO
+       |     |                                                 |       |
+      YES    NO                                                |       v
+       |     |                                                 |   Show User Alert:
+       v     v                                                 |   "Provider not configured
+   Navigate  Show Error Banner                                 |    in Supabase dashboard"
+   to App                                                      v
+                                                       Redirect to OAuth
+                                                       Provider Portal
+
+
+----------------------------------------------------------------------------------------
+3.2. CUSTOMER QR SELF-ORDERING FLOW
+----------------------------------------------------------------------------------------
+
+ [Customer scans physical QR code on dining table]
+                         |
+                         v
+                URL: /qr/:qrCodeId
+                         |
+                         v
+              [QrRedirect Component]
+                         |
+                         v
+      Fetch table & branch metadata from Supabase
+                         |
+           +-------------+-------------+
+           |                           |
+        Found?                      Not Found?
+           |                           |
+          YES                          v
+           |                   Display 404 Error:
+           |                   "Invalid QR Code"
+           v
+  Navigate to: /order?branch=:branchId&table=:tableNo
+                         |
+                         v
+               [TableOrderPage]
+                         |
+   +---------------------+---------------------+
+   |                     |                     |
+   v                     v                     v
+Browse Menu           Select Customizations   Add to Cart
+(Categories,          (Size, Spice Level,     (Local State /
+ Pricing, Badges)      Add-ons, Notes)         Draft Order)
+                         |
+                         v
+                  [Checkout Action]
+                         |
+                         v
+          Insert into `orders` & `order_items`
+                         |
+                         v
+          Supabase Realtime Trigger Fires
+                         |
+                         v
+      Merchant Kitchen / POS Screen Updates Instantly!
+
+
+----------------------------------------------------------------------------------------
+3.3. MERCHANT / STAFF ADMINISTRATION FLOW
+----------------------------------------------------------------------------------------
+
+ [Merchant Staff Logs In]
+            |
+            v
+     Fetch User Profile & Permissions from `users` table
+            |
+            v
+     Role Evaluation (Platform Admin | Owner | Manager | Cashier | Kitchen)
+            |
+            +---> Platform Admin? ===> Can access PlatformAdmin + Impersonate Tenants
+            |
+            +---> Cashier?        ===> POS & Ordering restricted view
+            |
+            `---> Manager / Owner ===> Full Branch Access
+                                            |
+                                            v
+                                     [Sidebar Menu]
+                                            |
+      +---------------+---------------------+---------------+---------------+
+      |               |                     |               |               |
+      v               v                     v               v               v
+ [Dashboard]     [Reports]             [Menu Mgmt]    [Inventory]     [Compliance]
+  Live KPIs,      Modular Subsections:   Categories,   Raw Stock,      LHDN e-Invoice,
+  Sales Trends,   - Sales Revenue        Modifiers,    Suppliers,      Tax Config,
+  Recent Orders   - Payments             Variants,     Low Stock       Audit Logs
+                  - Menu Insights        Out-of-stock  Alerts
+                  - Inventory Stock      Toggles
+                  - Staff Shifts
+                  - Customer Metrics
+                  - EOD Summary
+
+
+----------------------------------------------------------------------------------------
+3.4. SUPABASE KEEPALIVE & AUTOMATED HEARTBEAT FLOW
+----------------------------------------------------------------------------------------
+Objective: Prevent Supabase Free Tier projects from automatically sleeping after
+           7 days of inactivity.
+
+ Two Autonomous Heartbeat Vectors:
+ ---------------------------------
+
+ VECTOR A: In-Browser Hook (`useSupabaseKeepalive`)
+ -------------------------------------------------
+  Active Staff / Customer loads SnackBot
+            |
+            v
+  Checks `_keepalive.last_ping` timestamp
+            |
+    Has it been >= 6 days since last ping?
+            |
+            +--- NO  ---> Do nothing (prevents unnecessary database writes)
+            |
+            `--- YES ---> Execute UPSERT on `_keepalive`:
+                          - id = 1
+                          - last_ping = NOW()
+                          - ping_count = ping_count + 1
+
+ VECTOR B: GitHub Actions Automation (`.github/workflows/supabase-keepalive.yml`)
+ --------------------------------------------------------------------------------
+  Trigger: Scheduled Cron (`0 0 */5 * *` - Every 5 days at 00:00 UTC)
+            |
+            v
+  GitHub Runner spins up Ubuntu container
+            |
+            v
+  Executes `node scripts/keepalive.js`
+            |
+            v
+  Connects to Supabase REST API via Project Anon Key
+            |
+            v
+  Executes UPSERT on `_keepalive` (Increment counter + Timestamp update)
+            |
+            v
+  Supabase registers active API + Database transaction
+  (Project pause timer is reset to zero)
+
+
+========================================================================================
+4. DOMAIN FEATURE COMPONENT ARCHITECTURE
+========================================================================================
+
+src/
+├── main.tsx                    # React DOM Root initialization
+├── App.tsx                     # Top-level route detector & state shell
+├── index.css                   # Tailwind tokens, CSS custom properties, theme classes
+│
+├── contexts/                   # Application-wide context providers
+│   ├── SettingsContext.tsx     # Theme, currency, operational settings
+│   ├── TranslationContext.tsx  # Multi-language translation dictionaries
+│   └── ImpersonationContext.tsx# Tenant switching for platform admins
+│
+├── components/                 # Core shared architectural components
+│   ├── guards/
+│   │   ├── RoleGuard.tsx       # RBAC Route and UI wrapper
+│   │   └── index.ts
+│   └── layout/
+│       ├── Sidebar.tsx         # Responsive primary navigation drawer
+│       ├── ImpersonationBanner.tsx # Top notification during superadmin override
+│       └── index.ts
+│
+├── features/                   # Self-contained domain modules
+│   ├── auth/                   # Authentication & Onboarding
+│   │   ├── components/         # AmbientCanvas, FoodCarousel, AuthLayout
+│   │   ├── pages/              # LoginPage, ResetPasswordPage, AcceptInvitePage, DemoOnboardingPage
+│   │   ├── styles.ts           # Unified auth styling tokens
+│   │   ├── types.ts            # Auth state definitions
+│   │   └── utils/              # Hash error parsers
+│   │
+│   ├── reports/                # High-performance analytics & reporting
+│   │   ├── components/         # ReportHeader, FilterSidebar, AIInsightDrawer, Modals
+│   │   ├── hooks/              # useReportData (Centralized query cache)
+│   │   ├── sections/           # Sales, Payments, Menu, Inventory, Shifts, Customers, EOD
+│   │   ├── columns.tsx         # Data-table column definitions
+│   │   ├── constants.ts        # Presets, date ranges
+│   │   └── types.ts            # Metric data types
+│   │
+│   ├── ordering/               # Customer ordering & QR redirection
+│   │   └── pages/              # TableOrderPage, QrRedirect
+│   │
+│   ├── dashboard/              # Executive KPI dashboard
+│   ├── menu/                   # Menu item and modifier management
+│   ├── inventory/              # Stock management & supplier controls
+│   ├── tables-qr/              # Dining tables layout & QR code generator
+│   ├── branches/               # Multi-branch franchise network
+│   ├── sync/                   # Offline SQLite <-> Cloud Supabase sync
+│   ├── compliance/             # Malaysian LHDN e-Invoicing, Tax, Audit logs
+│   ├── marketing/              # Loyalty reward tiers & promotional discount rules
+│   ├── users/                  # Staff accounts & PIN management
+│   ├── settings/               # System preferences & hardware peripherals
+│   ├── platform-admin/         # SaaS Multi-tenant superadmin console
+│   └── ai-assistant/           # Embedded assistant with deep navigation shortcuts
+│
+├── hooks/
+│   └── useSupabaseKeepalive.ts # In-app keepalive trigger hook
+│
+├── lib/
+│   └── supabase.ts             # Initialized Supabase client instance
+│
+└── utils/
+    └── cn.ts                   # Class variance utility (clsx + tailwind-merge)
+
+
+========================================================================================
+5. ROLE-BASED ACCESS CONTROL (RBAC) & SECURITY MATRIX
+========================================================================================
+
+Role               Dashboard  Reports  Menu/Stock  POS/Orders  Settings  Platform Admin
+----------------------------------------------------------------------------------------
+Platform Admin        YES       YES       YES         YES        YES          YES
+Merchant Owner        YES       YES       YES         YES        YES          NO
+Store Manager         YES       YES       YES         YES        PARTIAL      NO
+Cashier / Server      NO        NO        VIEW ONLY   YES        NO           NO
+Kitchen Display       NO        NO        NO          VIEW ONLY  NO           NO
+Customer (Public)     NO        NO        MENU ONLY   ORDER ONLY NO           NO
+----------------------------------------------------------------------------------------
+
+
+========================================================================================
+6. DATA PERSISTENCE & SUPABASE SCHEMA TOPOLOGY
+========================================================================================
+
+  +-----------------------+              +-----------------------+
+  |       merchants       | 1          * |       branches        |
+  |-----------------------| ------------ |-----------------------|
+  | id (PK)               |              | id (PK)               |
+  | name                  |              | merchant_id (FK)      |
+  | sst_id / tax_number   |              | name, address, phone  |
+  | currency, created_at  |              | is_active             |
+  +-----------------------+              +-----------------------+
+              | 1                                    | 1
+              |                                      |
+              | *                                    | *
+  +-----------------------+              +-----------------------+
+  |         users         |              |        tables         |
+  |-----------------------|              |-----------------------|
+  | id (PK / auth.users)  |              | id (PK)               |
+  | merchant_id (FK)      |              | branch_id (FK)        |
+  | branch_id (FK)        |              | table_number          |
+  | role, pin_code, email |              | qr_code_id (Unique)   |
+  +-----------------------+              +-----------------------+
+                                                     | 1
+                                                     |
+                                                     | *
+  +-----------------------+              +-----------------------+
+  |      menu_items       | 1          * |        orders         |
+  |-----------------------| ------------ |-----------------------|
+  | id (PK)               |              | id (PK)               |
+  | branch_id (FK)        |              | branch_id (FK)        |
+  | name, price, cost     |              | table_id (FK)         |
+  | category_id (FK)      |              | status (pending/paid) |
+  | is_available          |              | subtotal, tax, total  |
+  +-----------------------+              +-----------------------+
+              | 1                                    | 1
+              |                                      |
+              | *                                    | *
+  +-----------------------+              +-----------------------+
+  |    order_items        |              |       payments        |
+  |-----------------------|              |-----------------------|
+  | id (PK)               |              | id (PK)               |
+  | order_id (FK)         |              | order_id (FK)         |
+  | menu_item_id (FK)     |              | amount, method        |
+  | quantity, price       |              | transaction_ref       |
+  | modifiers_json        |              | status, created_at    |
+  +-----------------------+              +-----------------------+
+
+  +-------------------------------------------------------------+
+  |                _keepalive (System Heartbeat)                |
+  |-------------------------------------------------------------|
+  | id          : INT (PK, default 1)                           |
+  | last_ping   : TIMESTAMPTZ (Updated every <= 6 days)         |
+  | ping_count  : INT (Heartbeat counter accumulator)           |
+  +-------------------------------------------------------------+
+
+========================================================================================
+                               END OF SPECIFICATION
+========================================================================================

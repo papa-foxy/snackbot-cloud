@@ -9,7 +9,7 @@ import { TranslationProvider }            from './contexts/TranslationContext';
 import { SettingsProvider, useSettings }  from './contexts/SettingsContext';
 import { ImpersonationProvider, useImpersonation } from './contexts/ImpersonationContext';
 
-import { Sidebar, ImpersonationBanner } from './components/layout';
+import { Sidebar, ImpersonationBanner, GlobalAnnouncementBanner } from './components/layout';
 import {
   LoginPage as Login,
   ResetPasswordPage as ResetPassword,
@@ -93,6 +93,8 @@ function AppContent({
       />
 
       <div className={cn('flex-1 flex flex-col h-screen overflow-hidden', isImpersonating && 'pt-9')}>
+        {/* Global Announcement Banner for Restaurant Cloud */}
+        <GlobalAnnouncementBanner />
 
         {/* Mobile header */}
         <header style={headerSty} className="lg:hidden h-14 bg-white dark:bg-[var(--sb-main)] border-b border-gray-200 dark:border-[var(--sb-border)] flex items-center px-4 shrink-0">
